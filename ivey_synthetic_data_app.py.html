@@ -1,0 +1,1156 @@
+<html>
+<head>
+<title>ivey_synthetic_data_app.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #7a7e85;}
+.s4 { color: #6aab73;}
+.s5 { color: #5f826b; font-style: italic;}
+.s6 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+ivey_synthetic_data_app.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">streamlit </span><span class="s0">as </span><span class="s1">st</span>
+<span class="s0">import </span><span class="s1">pandas </span><span class="s0">as </span><span class="s1">pd</span>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+<span class="s0">import </span><span class="s1">plotly</span><span class="s2">.</span><span class="s1">express </span><span class="s0">as </span><span class="s1">px</span>
+<span class="s0">import </span><span class="s1">plotly</span><span class="s2">.</span><span class="s1">graph_objects </span><span class="s0">as </span><span class="s1">go</span>
+<span class="s0">from </span><span class="s1">datetime </span><span class="s0">import </span><span class="s1">datetime</span><span class="s2">, </span><span class="s1">timedelta</span>
+<span class="s0">import </span><span class="s1">random</span>
+<span class="s0">import </span><span class="s1">io</span>
+<span class="s0">from </span><span class="s1">scipy </span><span class="s0">import </span><span class="s1">stats</span>
+<span class="s0">import </span><span class="s1">os</span>
+<span class="s0">from </span><span class="s1">typing </span><span class="s0">import </span><span class="s1">List</span><span class="s2">, </span><span class="s1">Dict</span>
+<span class="s0">import </span><span class="s1">json</span>
+<span class="s0">import </span><span class="s1">requests</span>
+
+<span class="s3"># Page configuration with Ivey Business School theme</span>
+<span class="s1">st</span><span class="s2">.</span><span class="s1">set_page_config</span><span class="s2">(</span>
+    <span class="s1">page_title</span><span class="s2">=</span><span class="s4">&quot;Ivey Synthetic Data Platform&quot;</span><span class="s2">,</span>
+    <span class="s1">page_icon</span><span class="s2">=</span><span class="s4">&quot;🎓&quot;</span><span class="s2">,</span>
+    <span class="s1">layout</span><span class="s2">=</span><span class="s4">&quot;wide&quot;</span><span class="s2">,</span>
+    <span class="s1">initial_sidebar_state</span><span class="s2">=</span><span class="s4">&quot;expanded&quot;</span>
+<span class="s2">)</span>
+
+<span class="s3"># Custom CSS for Ivey Business School green theme</span>
+<span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;&quot;&quot; 
+    &lt;style&gt; 
+    .stApp { 
+        background-color: #f8f9fa; 
+    } 
+    .stTabs [data-baseweb=&quot;tab-list&quot;] { 
+        background-color: #00693e; 
+        border-radius: 10px; 
+        padding: 5px; 
+    } 
+    .stTabs [data-baseweb=&quot;tab&quot;] { 
+        color: white; 
+        font-weight: 500; 
+    } 
+    .stTabs [aria-selected=&quot;true&quot;] { 
+        background-color: white !important; 
+        color: #00693e !important; 
+        border-radius: 5px; 
+    } 
+    h1, h2, h3 { 
+        color: #00693e; 
+    } 
+    .stButton &gt; button { 
+        background-color: #00693e; 
+        color: white; 
+        border: none; 
+        border-radius: 5px; 
+        padding: 0.5rem 1rem; 
+        font-weight: 500; 
+        transition: all 0.3s; 
+    } 
+    .stButton &gt; button:hover { 
+        background-color: #004d2c; 
+        transform: translateY(-2px); 
+    } 
+    .info-box { 
+        background-color: #e8f5f0; 
+        border-left: 4px solid #00693e; 
+        padding: 1rem; 
+        border-radius: 5px; 
+        margin: 1rem 0; 
+    } 
+    .metric-card { 
+        background-color: white; 
+        padding: 1.5rem; 
+        border-radius: 10px; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        margin: 0.5rem 0; 
+    } 
+    .risk-low { 
+        background-color: #d4edda; 
+        border: 2px solid #28a745; 
+        color: #155724; 
+    } 
+    .risk-medium { 
+        background-color: #fff3cd; 
+        border: 2px solid #ffc107; 
+        color: #856404; 
+    } 
+    .risk-high { 
+        background-color: #f8d7da; 
+        border: 2px solid #dc3545; 
+        color: #721c24; 
+    } 
+    &lt;/style&gt; 
+    &quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+<span class="s3"># Initialize session state</span>
+<span class="s0">if </span><span class="s4">'chat_history' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history </span><span class="s2">= []</span>
+<span class="s0">if </span><span class="s4">'messages' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">messages </span><span class="s2">= [</span>
+        <span class="s2">{</span><span class="s4">&quot;role&quot;</span><span class="s2">: </span><span class="s4">&quot;system&quot;</span><span class="s2">, </span><span class="s4">&quot;content&quot;</span><span class="s2">: </span><span class="s4">&quot;&quot;&quot;You are an expert AI assistant specializing in synthetic data generation,  
+        data science, and privacy-preserving technologies. You work for Ivey Business School and help students,  
+        researchers, and professionals understand synthetic data concepts, applications, and best practices.  
+        You provide detailed, educational responses about: 
+        - Synthetic data generation techniques (GANs, VAEs, statistical methods) 
+        - Privacy preservation (differential privacy, k-anonymity, l-diversity) 
+        - Use cases in healthcare, finance, and business 
+        - Statistical validation methods 
+        - Implementation strategies 
+        - Regulatory compliance (GDPR, HIPAA) 
+        - Machine learning applications 
+        Always be helpful, thorough, and educational in your responses.&quot;&quot;&quot;</span><span class="s2">}</span>
+    <span class="s2">]</span>
+<span class="s0">if </span><span class="s4">'synthetic_data' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data </span><span class="s2">= </span><span class="s0">None</span>
+<span class="s0">if </span><span class="s4">'original_stats' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">original_stats </span><span class="s2">= </span><span class="s0">None</span>
+<span class="s0">if </span><span class="s4">'generation_method' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">generation_method </span><span class="s2">= </span><span class="s0">None</span>
+<span class="s0">if </span><span class="s4">'privacy_level' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">privacy_level </span><span class="s2">= </span><span class="s0">None</span>
+<span class="s0">if </span><span class="s4">'pending_question' </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question </span><span class="s2">= </span><span class="s0">None</span>
+
+
+<span class="s3"># Privacy Risk Assessment Functions</span>
+<span class="s0">def </span><span class="s1">assess_privacy_risk</span><span class="s2">(</span><span class="s1">df</span><span class="s2">, </span><span class="s1">synthetic_df</span><span class="s2">):</span>
+    <span class="s5">&quot;&quot;&quot;Assess privacy risks in synthetic data&quot;&quot;&quot;</span>
+
+    <span class="s1">risks </span><span class="s2">= {</span>
+        <span class="s4">'overall_risk'</span><span class="s2">: </span><span class="s4">'Low'</span><span class="s2">,</span>
+        <span class="s4">'membership_inference_risk'</span><span class="s2">: </span><span class="s6">0.0</span><span class="s2">,</span>
+        <span class="s4">'attribute_inference_risk'</span><span class="s2">: </span><span class="s6">0.0</span><span class="s2">,</span>
+        <span class="s4">'linkability_risk'</span><span class="s2">: </span><span class="s6">0.0</span><span class="s2">,</span>
+        <span class="s4">'uniqueness_risk'</span><span class="s2">: </span><span class="s6">0.0</span><span class="s2">,</span>
+        <span class="s4">'recommendations'</span><span class="s2">: []</span>
+    <span class="s2">}</span>
+
+    <span class="s3"># Simple membership inference risk (based on exact matches)</span>
+    <span class="s1">exact_matches </span><span class="s2">= </span><span class="s6">0</span>
+    <span class="s0">for </span><span class="s1">idx</span><span class="s2">, </span><span class="s1">row </span><span class="s0">in </span><span class="s1">synthetic_df</span><span class="s2">.</span><span class="s1">iterrows</span><span class="s2">():</span>
+        <span class="s0">if </span><span class="s1">any</span><span class="s2">((</span><span class="s1">df </span><span class="s2">== </span><span class="s1">row</span><span class="s2">).</span><span class="s1">all</span><span class="s2">(</span><span class="s1">axis</span><span class="s2">=</span><span class="s6">1</span><span class="s2">)):</span>
+            <span class="s1">exact_matches </span><span class="s2">+= </span><span class="s6">1</span>
+
+    <span class="s1">membership_risk </span><span class="s2">= (</span><span class="s1">exact_matches </span><span class="s2">/ </span><span class="s1">len</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">)) * </span><span class="s6">100</span>
+    <span class="s1">risks</span><span class="s2">[</span><span class="s4">'membership_inference_risk'</span><span class="s2">] = </span><span class="s1">membership_risk</span>
+
+    <span class="s0">if </span><span class="s1">membership_risk </span><span class="s2">&gt; </span><span class="s6">5</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] = </span><span class="s4">'High'</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;🚨 High exact match rate - reduce noise or change generation method&quot;</span><span class="s2">)</span>
+    <span class="s0">elif </span><span class="s1">membership_risk </span><span class="s2">&gt; </span><span class="s6">1</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] = </span><span class="s4">'Medium'</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;⚠️ Consider adding more noise to synthetic data&quot;</span><span class="s2">)</span>
+
+    <span class="s3"># Attribute inference risk (correlation preservation)</span>
+    <span class="s1">numeric_cols </span><span class="s2">= </span><span class="s1">df</span><span class="s2">.</span><span class="s1">select_dtypes</span><span class="s2">(</span><span class="s1">include</span><span class="s2">=[</span><span class="s1">np</span><span class="s2">.</span><span class="s1">number</span><span class="s2">]).</span><span class="s1">columns</span>
+    <span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">numeric_cols</span><span class="s2">) &gt; </span><span class="s6">1</span><span class="s2">:</span>
+        <span class="s1">orig_corr </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">corr</span><span class="s2">()</span>
+        <span class="s1">synth_corr </span><span class="s2">= </span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">corr</span><span class="s2">()</span>
+
+        <span class="s1">correlation_similarity </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">corrcoef</span><span class="s2">(</span><span class="s1">orig_corr</span><span class="s2">.</span><span class="s1">values</span><span class="s2">.</span><span class="s1">flatten</span><span class="s2">(),</span>
+                                             <span class="s1">synth_corr</span><span class="s2">.</span><span class="s1">values</span><span class="s2">.</span><span class="s1">flatten</span><span class="s2">())[</span><span class="s6">0</span><span class="s2">, </span><span class="s6">1</span><span class="s2">]</span>
+
+        <span class="s1">attribute_risk </span><span class="s2">= </span><span class="s1">max</span><span class="s2">(</span><span class="s6">0</span><span class="s2">, </span><span class="s1">correlation_similarity </span><span class="s2">* </span><span class="s6">100</span><span class="s2">)  </span><span class="s3"># Scale to percentage</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'attribute_inference_risk'</span><span class="s2">] = </span><span class="s1">attribute_risk</span>
+
+        <span class="s0">if </span><span class="s1">attribute_risk </span><span class="s2">&gt; </span><span class="s6">85</span><span class="s2">:</span>
+            <span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;🔍 Very high correlation preservation may enable attribute inference&quot;</span><span class="s2">)</span>
+            <span class="s0">if </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] == </span><span class="s4">'Low'</span><span class="s2">:</span>
+                <span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] = </span><span class="s4">'Medium'</span>
+
+    <span class="s3"># Uniqueness risk</span>
+    <span class="s1">unique_combinations </span><span class="s2">= </span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">.</span><span class="s1">drop_duplicates</span><span class="s2">()) / </span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">) * </span><span class="s6">100</span>
+    <span class="s1">risks</span><span class="s2">[</span><span class="s4">'uniqueness_risk'</span><span class="s2">] = </span><span class="s1">unique_combinations</span>
+
+    <span class="s0">if </span><span class="s1">unique_combinations </span><span class="s2">&gt; </span><span class="s6">90</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'linkability_risk'</span><span class="s2">] = </span><span class="s6">75</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;🎯 High uniqueness in original data increases linkability risk&quot;</span><span class="s2">)</span>
+        <span class="s0">if </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] != </span><span class="s4">'High'</span><span class="s2">:</span>
+            <span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] = </span><span class="s4">'Medium'</span>
+    <span class="s0">elif </span><span class="s1">unique_combinations </span><span class="s2">&gt; </span><span class="s6">70</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'linkability_risk'</span><span class="s2">] = </span><span class="s6">40</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;📊 Moderate uniqueness detected - monitor for linking attacks&quot;</span><span class="s2">)</span>
+    <span class="s0">else</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'linkability_risk'</span><span class="s2">] = </span><span class="s6">20</span>
+
+    <span class="s3"># Overall risk assessment</span>
+    <span class="s1">avg_risk </span><span class="s2">= (</span><span class="s1">membership_risk </span><span class="s2">+ </span><span class="s1">attribute_risk </span><span class="s2">+ </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'linkability_risk'</span><span class="s2">]) / </span><span class="s6">3</span>
+    <span class="s0">if </span><span class="s1">avg_risk </span><span class="s2">&gt; </span><span class="s6">60 </span><span class="s0">and </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] != </span><span class="s4">'High'</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] = </span><span class="s4">'High'</span>
+    <span class="s0">elif </span><span class="s1">avg_risk </span><span class="s2">&gt; </span><span class="s6">30 </span><span class="s0">and </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] == </span><span class="s4">'Low'</span><span class="s2">:</span>
+        <span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] = </span><span class="s4">'Medium'</span>
+
+    <span class="s0">return </span><span class="s1">risks</span>
+
+
+<span class="s0">def </span><span class="s1">generate_data_quality_report</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">, </span><span class="s1">synthetic_df</span><span class="s2">, </span><span class="s1">generation_method</span><span class="s2">, </span><span class="s1">privacy_level</span><span class="s2">):</span>
+    <span class="s5">&quot;&quot;&quot;Generate comprehensive data quality report&quot;&quot;&quot;</span>
+
+    <span class="s1">report </span><span class="s2">= {</span>
+        <span class="s4">'metadata'</span><span class="s2">: {</span>
+            <span class="s4">'timestamp'</span><span class="s2">: </span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">strftime</span><span class="s2">(</span><span class="s4">'%Y-%m-%d %H:%M:%S'</span><span class="s2">),</span>
+            <span class="s4">'original_shape'</span><span class="s2">: </span><span class="s1">original_df</span><span class="s2">.</span><span class="s1">shape</span><span class="s2">,</span>
+            <span class="s4">'synthetic_shape'</span><span class="s2">: </span><span class="s1">synthetic_df</span><span class="s2">.</span><span class="s1">shape</span><span class="s2">,</span>
+            <span class="s4">'generation_method'</span><span class="s2">: </span><span class="s1">generation_method</span><span class="s2">,</span>
+            <span class="s4">'privacy_level'</span><span class="s2">: </span><span class="s1">privacy_level</span><span class="s2">,</span>
+        <span class="s2">},</span>
+        <span class="s4">'statistical_comparison'</span><span class="s2">: {},</span>
+        <span class="s4">'distribution_tests'</span><span class="s2">: {},</span>
+        <span class="s4">'privacy_assessment'</span><span class="s2">: {},</span>
+        <span class="s4">'recommendations'</span><span class="s2">: []</span>
+    <span class="s2">}</span>
+
+    <span class="s3"># Statistical comparisons</span>
+    <span class="s1">numeric_cols </span><span class="s2">= </span><span class="s1">original_df</span><span class="s2">.</span><span class="s1">select_dtypes</span><span class="s2">(</span><span class="s1">include</span><span class="s2">=[</span><span class="s1">np</span><span class="s2">.</span><span class="s1">number</span><span class="s2">]).</span><span class="s1">columns</span>
+
+    <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">numeric_cols</span><span class="s2">:</span>
+        <span class="s0">try</span><span class="s2">:</span>
+            <span class="s1">ks_stat</span><span class="s2">, </span><span class="s1">ks_pvalue </span><span class="s2">= </span><span class="s1">stats</span><span class="s2">.</span><span class="s1">ks_2samp</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">dropna</span><span class="s2">(), </span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">dropna</span><span class="s2">())</span>
+
+            <span class="s1">mean_diff </span><span class="s2">= </span><span class="s1">abs</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">() - </span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">())</span>
+            <span class="s1">mean_diff_pct </span><span class="s2">= (</span><span class="s1">mean_diff </span><span class="s2">/ </span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">() * </span><span class="s6">100</span><span class="s2">) </span><span class="s0">if </span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">() != </span><span class="s6">0 </span><span class="s0">else </span><span class="s6">0</span>
+
+            <span class="s1">report</span><span class="s2">[</span><span class="s4">'statistical_comparison'</span><span class="s2">][</span><span class="s1">col</span><span class="s2">] = {</span>
+                <span class="s4">'original_mean'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()),</span>
+                <span class="s4">'synthetic_mean'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()),</span>
+                <span class="s4">'original_std'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">()),</span>
+                <span class="s4">'synthetic_std'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">()),</span>
+                <span class="s4">'mean_difference_pct'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">mean_diff_pct</span><span class="s2">),</span>
+                <span class="s4">'std_difference_pct'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span>
+                    <span class="s1">abs</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">() - </span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">()) / </span><span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">() * </span><span class="s6">100</span><span class="s2">) </span><span class="s0">if</span>
+                <span class="s1">original_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">() != </span><span class="s6">0 </span><span class="s0">else </span><span class="s6">0</span>
+            <span class="s2">}</span>
+
+            <span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">][</span><span class="s1">col</span><span class="s2">] = {</span>
+                <span class="s4">'ks_statistic'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">ks_stat</span><span class="s2">),</span>
+                <span class="s4">'ks_pvalue'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s1">ks_pvalue</span><span class="s2">),</span>
+                <span class="s4">'distribution_similarity'</span><span class="s2">: </span><span class="s4">'Excellent' </span><span class="s0">if </span><span class="s1">ks_pvalue </span><span class="s2">&gt; </span><span class="s6">0.05 </span><span class="s0">else </span><span class="s4">'Needs Review'</span><span class="s2">,</span>
+                <span class="s4">'similarity_score'</span><span class="s2">: </span><span class="s1">float</span><span class="s2">(</span><span class="s6">1 </span><span class="s2">- </span><span class="s1">ks_stat</span><span class="s2">)  </span><span class="s3"># Higher is better</span>
+            <span class="s2">}</span>
+
+        <span class="s0">except </span><span class="s1">Exception </span><span class="s0">as </span><span class="s1">e</span><span class="s2">:</span>
+            <span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">][</span><span class="s1">col</span><span class="s2">] = {</span><span class="s4">'error'</span><span class="s2">: </span><span class="s1">str</span><span class="s2">(</span><span class="s1">e</span><span class="s2">)}</span>
+
+    <span class="s3"># Privacy assessment</span>
+    <span class="s1">privacy_risks </span><span class="s2">= </span><span class="s1">assess_privacy_risk</span><span class="s2">(</span><span class="s1">original_df</span><span class="s2">, </span><span class="s1">synthetic_df</span><span class="s2">)</span>
+    <span class="s1">report</span><span class="s2">[</span><span class="s4">'privacy_assessment'</span><span class="s2">] = </span><span class="s1">privacy_risks</span>
+
+    <span class="s3"># Generate recommendations</span>
+    <span class="s0">if </span><span class="s1">len</span><span class="s2">([</span><span class="s1">col </span><span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">] </span><span class="s0">if</span>
+            <span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">][</span><span class="s1">col</span><span class="s2">].</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'ks_pvalue'</span><span class="s2">, </span><span class="s6">0</span><span class="s2">) &gt; </span><span class="s6">0.05</span><span class="s2">]) &lt; </span><span class="s1">len</span><span class="s2">(</span><span class="s1">numeric_cols</span><span class="s2">) * </span><span class="s6">0.7</span><span class="s2">:</span>
+        <span class="s1">report</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span>
+            <span class="s4">&quot;Consider using a different generation method for better distribution matching&quot;</span><span class="s2">)</span>
+
+    <span class="s0">if </span><span class="s1">privacy_risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">] == </span><span class="s4">'High'</span><span class="s2">:</span>
+        <span class="s1">report</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;Increase privacy level or add more noise to reduce privacy risks&quot;</span><span class="s2">)</span>
+
+    <span class="s1">avg_similarity </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">mean</span><span class="s2">([</span><span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">][</span><span class="s1">col</span><span class="s2">].</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'similarity_score'</span><span class="s2">, </span><span class="s6">0</span><span class="s2">) </span><span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">numeric_cols</span><span class="s2">])</span>
+    <span class="s0">if </span><span class="s1">avg_similarity </span><span class="s2">&lt; </span><span class="s6">0.7</span><span class="s2">:</span>
+        <span class="s1">report</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">].</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;Low similarity detected - consider tuning generation parameters&quot;</span><span class="s2">)</span>
+
+    <span class="s1">report</span><span class="s2">[</span><span class="s4">'overall_quality_score'</span><span class="s2">] = </span><span class="s1">float</span><span class="s2">(</span><span class="s1">avg_similarity </span><span class="s2">* </span><span class="s6">100</span><span class="s2">)</span>
+
+    <span class="s0">return </span><span class="s1">report</span>
+
+
+<span class="s0">def </span><span class="s1">apply_anonymization_techniques</span><span class="s2">(</span><span class="s1">df</span><span class="s2">, </span><span class="s1">technique</span><span class="s2">, </span><span class="s1">quasi_identifiers</span><span class="s2">, </span><span class="s1">params</span><span class="s2">=</span><span class="s0">None</span><span class="s2">):</span>
+    <span class="s5">&quot;&quot;&quot;Apply various anonymization techniques&quot;&quot;&quot;</span>
+
+    <span class="s1">anonymized_df </span><span class="s2">= </span><span class="s1">df</span><span class="s2">.</span><span class="s1">copy</span><span class="s2">()</span>
+
+    <span class="s0">if </span><span class="s1">technique </span><span class="s2">== </span><span class="s4">&quot;k-Anonymity&quot;</span><span class="s2">:</span>
+        <span class="s1">k_value </span><span class="s2">= </span><span class="s1">params</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'k_value'</span><span class="s2">, </span><span class="s6">5</span><span class="s2">)</span>
+
+        <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">quasi_identifiers</span><span class="s2">:</span>
+            <span class="s0">if </span><span class="s1">col </span><span class="s0">in </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">dtype </span><span class="s0">in </span><span class="s2">[</span><span class="s4">'int64'</span><span class="s2">, </span><span class="s4">'float64'</span><span class="s2">]:</span>
+                    <span class="s3"># Generalize numeric values into ranges</span>
+                    <span class="s0">try</span><span class="s2">:</span>
+                        <span class="s1">bins </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">qcut</span><span class="s2">(</span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">], </span><span class="s1">q</span><span class="s2">=</span><span class="s1">min</span><span class="s2">(</span><span class="s1">k_value</span><span class="s2">, </span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">unique</span><span class="s2">())), </span><span class="s1">duplicates</span><span class="s2">=</span><span class="s4">'drop'</span><span class="s2">)</span>
+                        <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">bins</span><span class="s2">.</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">str</span><span class="s2">)</span>
+                    <span class="s0">except</span><span class="s2">:</span>
+                        <span class="s3"># Fallback to equal-width bins if qcut fails</span>
+                        <span class="s1">bins </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">cut</span><span class="s2">(</span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">], </span><span class="s1">bins</span><span class="s2">=</span><span class="s1">min</span><span class="s2">(</span><span class="s1">k_value</span><span class="s2">, </span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">unique</span><span class="s2">())))</span>
+                        <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">bins</span><span class="s2">.</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">str</span><span class="s2">)</span>
+                <span class="s0">else</span><span class="s2">:</span>
+                    <span class="s3"># Generalize categorical values</span>
+                    <span class="s1">value_counts </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">value_counts</span><span class="s2">()</span>
+                    <span class="s1">rare_values </span><span class="s2">= </span><span class="s1">value_counts</span><span class="s2">[</span><span class="s1">value_counts </span><span class="s2">&lt; </span><span class="s1">k_value</span><span class="s2">].</span><span class="s1">index</span>
+                    <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">replace</span><span class="s2">(</span><span class="s1">rare_values</span><span class="s2">, </span><span class="s4">'Other'</span><span class="s2">)</span>
+
+    <span class="s0">elif </span><span class="s1">technique </span><span class="s2">== </span><span class="s4">&quot;l-Diversity&quot;</span><span class="s2">:</span>
+        <span class="s1">l_value </span><span class="s2">= </span><span class="s1">params</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'l_value'</span><span class="s2">, </span><span class="s6">3</span><span class="s2">)</span>
+        <span class="s1">sensitive_attr </span><span class="s2">= </span><span class="s1">params</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'sensitive_attr'</span><span class="s2">)</span>
+
+        <span class="s0">if </span><span class="s1">sensitive_attr </span><span class="s0">and </span><span class="s1">sensitive_attr </span><span class="s0">in </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">:</span>
+            <span class="s3"># Group by quasi-identifiers and ensure diversity in sensitive attribute</span>
+            <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">quasi_identifiers</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">col </span><span class="s0">in </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns </span><span class="s0">and </span><span class="s1">col </span><span class="s2">!= </span><span class="s1">sensitive_attr</span><span class="s2">:</span>
+                    <span class="s1">groups </span><span class="s2">= </span><span class="s1">anonymized_df</span><span class="s2">.</span><span class="s1">groupby</span><span class="s2">(</span><span class="s1">col</span><span class="s2">)[</span><span class="s1">sensitive_attr</span><span class="s2">].</span><span class="s1">nunique</span><span class="s2">()</span>
+                    <span class="s1">insufficient_groups </span><span class="s2">= </span><span class="s1">groups</span><span class="s2">[</span><span class="s1">groups </span><span class="s2">&lt; </span><span class="s1">l_value</span><span class="s2">].</span><span class="s1">index</span>
+
+                    <span class="s3"># Suppress records with insufficient diversity</span>
+                    <span class="s1">mask </span><span class="s2">= </span><span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">isin</span><span class="s2">(</span><span class="s1">insufficient_groups</span><span class="s2">)</span>
+                    <span class="s1">anonymized_df</span><span class="s2">.</span><span class="s1">loc</span><span class="s2">[</span><span class="s1">mask</span><span class="s2">, </span><span class="s1">col</span><span class="s2">] = </span><span class="s4">'Suppressed'</span>
+
+    <span class="s0">elif </span><span class="s1">technique </span><span class="s2">== </span><span class="s4">&quot;Data Masking&quot;</span><span class="s2">:</span>
+        <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">quasi_identifiers</span><span class="s2">:</span>
+            <span class="s0">if </span><span class="s1">col </span><span class="s0">in </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s4">'name' </span><span class="s0">in </span><span class="s1">col</span><span class="s2">.</span><span class="s1">lower</span><span class="s2">():</span>
+                    <span class="s3"># Mask names</span>
+                    <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">str</span><span class="s2">).</span><span class="s1">apply</span><span class="s2">(</span>
+                        <span class="s0">lambda </span><span class="s1">x</span><span class="s2">: </span><span class="s1">x</span><span class="s2">[:</span><span class="s6">2</span><span class="s2">] + </span><span class="s4">'*' </span><span class="s2">* (</span><span class="s1">len</span><span class="s2">(</span><span class="s1">str</span><span class="s2">(</span><span class="s1">x</span><span class="s2">)) - </span><span class="s6">2</span><span class="s2">) </span><span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">str</span><span class="s2">(</span><span class="s1">x</span><span class="s2">)) &gt; </span><span class="s6">2 </span><span class="s0">else </span><span class="s4">'***'</span>
+                    <span class="s2">)</span>
+                <span class="s0">elif </span><span class="s4">'id' </span><span class="s0">in </span><span class="s1">col</span><span class="s2">.</span><span class="s1">lower</span><span class="s2">():</span>
+                    <span class="s3"># Mask IDs</span>
+                    <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">str</span><span class="s2">).</span><span class="s1">apply</span><span class="s2">(</span>
+                        <span class="s0">lambda </span><span class="s1">x</span><span class="s2">: </span><span class="s1">x</span><span class="s2">[:</span><span class="s6">3</span><span class="s2">] + </span><span class="s4">'*' </span><span class="s2">* </span><span class="s1">max</span><span class="s2">(</span><span class="s6">0</span><span class="s2">, </span><span class="s1">len</span><span class="s2">(</span><span class="s1">str</span><span class="s2">(</span><span class="s1">x</span><span class="s2">)) - </span><span class="s6">3</span><span class="s2">)</span>
+                    <span class="s2">)</span>
+                <span class="s0">elif </span><span class="s4">'email' </span><span class="s0">in </span><span class="s1">col</span><span class="s2">.</span><span class="s1">lower</span><span class="s2">():</span>
+                    <span class="s3"># Mask emails</span>
+                    <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">str</span><span class="s2">).</span><span class="s1">str</span><span class="s2">.</span><span class="s1">replace</span><span class="s2">(</span>
+                        <span class="s4">r'@.*'</span><span class="s2">, </span><span class="s4">'@***.com'</span><span class="s2">, </span><span class="s1">regex</span><span class="s2">=</span><span class="s0">True</span>
+                    <span class="s2">)</span>
+                <span class="s0">elif </span><span class="s4">'phone' </span><span class="s0">in </span><span class="s1">col</span><span class="s2">.</span><span class="s1">lower</span><span class="s2">():</span>
+                    <span class="s3"># Mask phone numbers</span>
+                    <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">str</span><span class="s2">).</span><span class="s1">apply</span><span class="s2">(</span>
+                        <span class="s0">lambda </span><span class="s1">x</span><span class="s2">: </span><span class="s1">x</span><span class="s2">[:</span><span class="s6">3</span><span class="s2">] + </span><span class="s4">'-***-****' </span><span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">str</span><span class="s2">(</span><span class="s1">x</span><span class="s2">)) &gt;= </span><span class="s6">3 </span><span class="s0">else </span><span class="s4">'***-***-****'</span>
+                    <span class="s2">)</span>
+
+    <span class="s0">elif </span><span class="s1">technique </span><span class="s2">== </span><span class="s4">&quot;Noise Addition&quot;</span><span class="s2">:</span>
+        <span class="s1">noise_level </span><span class="s2">= </span><span class="s1">params</span><span class="s2">.</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'noise_level'</span><span class="s2">, </span><span class="s6">0.1</span><span class="s2">)</span>
+
+        <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">quasi_identifiers</span><span class="s2">:</span>
+            <span class="s0">if </span><span class="s1">col </span><span class="s0">in </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns </span><span class="s0">and </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">dtype </span><span class="s0">in </span><span class="s2">[</span><span class="s4">'int64'</span><span class="s2">, </span><span class="s4">'float64'</span><span class="s2">]:</span>
+                <span class="s1">std_dev </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">()</span>
+                <span class="s1">noise </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">0</span><span class="s2">, </span><span class="s1">std_dev </span><span class="s2">* </span><span class="s1">noise_level</span><span class="s2">, </span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">))</span>
+                <span class="s1">anonymized_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] + </span><span class="s1">noise</span>
+
+    <span class="s0">return </span><span class="s1">anonymized_df</span>
+
+
+<span class="s3"># Header with Ivey branding</span>
+<span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;&quot;&quot; 
+    &lt;div style='text-align: center; padding: 2rem 0;'&gt; 
+        &lt;h1 style='color: #00693e; font-size: 2.5rem; margin-bottom: 0.5rem;'&gt; 
+            🎓 Ivey Business School 
+        &lt;/h1&gt; 
+        &lt;h2 style='color: #00693e; font-size: 1.8rem; font-weight: 400;'&gt; 
+            Advanced Synthetic Data Generation Platform 
+        &lt;/h2&gt; 
+        &lt;p style='color: #666; font-size: 1rem;'&gt; 
+            Educational Tool for Data Science &amp; Privacy-Preserving Analytics 
+        &lt;/p&gt; 
+    &lt;/div&gt; 
+    &quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+<span class="s3"># Create tabs</span>
+<span class="s1">tab1</span><span class="s2">, </span><span class="s1">tab2</span><span class="s2">, </span><span class="s1">tab3 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">tabs</span><span class="s2">([</span><span class="s4">&quot;📚 AI Education Assistant&quot;</span><span class="s2">, </span><span class="s4">&quot;🔧 Advanced Data Generator&quot;</span><span class="s2">, </span><span class="s4">&quot;🏥 Healthcare Simulator&quot;</span><span class="s2">])</span>
+
+<span class="s3"># Tab 1: Educational Chatbot</span>
+<span class="s0">with </span><span class="s1">tab1</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;### 💬 Synthetic Data Education Assistant&quot;</span><span class="s2">)</span>
+
+    <span class="s0">try</span><span class="s2">:</span>
+        <span class="s0">from </span><span class="s1">langchain_community</span><span class="s2">.</span><span class="s1">chat_models </span><span class="s0">import </span><span class="s1">ChatOllama</span>
+        <span class="s0">from </span><span class="s1">langchain_core</span><span class="s2">.</span><span class="s1">messages </span><span class="s0">import </span><span class="s1">AIMessage</span><span class="s2">, </span><span class="s1">HumanMessage</span>
+
+
+        <span class="s2">@</span><span class="s1">st</span><span class="s2">.</span><span class="s1">cache_resource</span>
+        <span class="s0">def </span><span class="s1">init_bot</span><span class="s2">():</span>
+            <span class="s0">try</span><span class="s2">:</span>
+                <span class="s0">return </span><span class="s1">ChatOllama</span><span class="s2">(</span><span class="s1">model</span><span class="s2">=</span><span class="s4">&quot;phi3:mini&quot;</span><span class="s2">)</span>
+            <span class="s0">except </span><span class="s1">Exception </span><span class="s0">as </span><span class="s1">e</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">error</span><span class="s2">(</span><span class="s4">f&quot;Could not connect to Ollama. Please ensure Ollama is installed and running. Error: </span><span class="s0">{</span><span class="s1">e</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s0">return None</span>
+
+
+        <span class="s1">llm </span><span class="s2">= </span><span class="s1">init_bot</span><span class="s2">()</span>
+
+        <span class="s0">if </span><span class="s1">llm </span><span class="s0">is not None</span><span class="s2">:</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;&quot;&quot; 
+                &lt;div class='info-box'&gt; 
+                &lt;strong&gt;Welcome to the Ivey Synthetic Data Educational Assistant!&lt;/strong&gt;&lt;br&gt; 
+                I'm a locally powered AI assistant that can help answer questions about: 
+                &lt;ul&gt; 
+                    &lt;li&gt;Synthetic data generation techniques and algorithms&lt;/li&gt; 
+                    &lt;li&gt;Privacy preservation and data anonymization&lt;/li&gt; 
+                    &lt;li&gt;Statistical validation and quality metrics&lt;/li&gt; 
+                    &lt;li&gt;Real-world applications and case studies&lt;/li&gt; 
+                    &lt;li&gt;Implementation best practices&lt;/li&gt; 
+                    &lt;li&gt;Regulatory compliance and ethical considerations&lt;/li&gt; 
+                &lt;/ul&gt; 
+                Feel free to ask follow-up questions! 
+                &lt;/div&gt; 
+                &quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s0">if </span><span class="s4">&quot;chat_history&quot; </span><span class="s0">not in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history </span><span class="s2">= [</span>
+                    <span class="s1">AIMessage</span><span class="s2">(</span>
+                        <span class="s1">content</span><span class="s2">=</span><span class="s4">&quot;Hello! I'm your synthetic data tutor. Ask me anything about privacy, generation, metrics, or applications!&quot;</span><span class="s2">)</span>
+                <span class="s2">]</span>
+
+            <span class="s3"># Display chat history</span>
+            <span class="s0">for </span><span class="s1">msg </span><span class="s0">in </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">isinstance</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">, </span><span class="s1">AIMessage</span><span class="s2">):</span>
+                    <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_message</span><span class="s2">(</span><span class="s4">&quot;assistant&quot;</span><span class="s2">, </span><span class="s1">avatar</span><span class="s2">=</span><span class="s4">&quot;🤖&quot;</span><span class="s2">):</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">content</span><span class="s2">)</span>
+                <span class="s0">elif </span><span class="s1">isinstance</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">, </span><span class="s1">HumanMessage</span><span class="s2">):</span>
+                    <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_message</span><span class="s2">(</span><span class="s4">&quot;user&quot;</span><span class="s2">, </span><span class="s1">avatar</span><span class="s2">=</span><span class="s4">&quot;🧑&quot;</span><span class="s2">):</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s1">msg</span><span class="s2">.</span><span class="s1">content</span><span class="s2">)</span>
+
+            <span class="s3"># Process pending question if exists</span>
+            <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question</span><span class="s2">:</span>
+                <span class="s1">question </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question </span><span class="s2">= </span><span class="s0">None</span>
+
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s1">HumanMessage</span><span class="s2">(</span><span class="s1">content</span><span class="s2">=</span><span class="s1">question</span><span class="s2">))</span>
+
+                <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_message</span><span class="s2">(</span><span class="s4">&quot;user&quot;</span><span class="s2">, </span><span class="s1">avatar</span><span class="s2">=</span><span class="s4">&quot;🧑&quot;</span><span class="s2">):</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s1">question</span><span class="s2">)</span>
+
+                <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_message</span><span class="s2">(</span><span class="s4">&quot;assistant&quot;</span><span class="s2">, </span><span class="s1">avatar</span><span class="s2">=</span><span class="s4">&quot;🤖&quot;</span><span class="s2">):</span>
+                    <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">spinner</span><span class="s2">(</span><span class="s4">&quot;Thinking...&quot;</span><span class="s2">):</span>
+                        <span class="s0">try</span><span class="s2">:</span>
+                            <span class="s1">response </span><span class="s2">= </span><span class="s1">llm</span><span class="s2">.</span><span class="s1">invoke</span><span class="s2">(</span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">)</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">content</span><span class="s2">)</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s1">AIMessage</span><span class="s2">(</span><span class="s1">content</span><span class="s2">=</span><span class="s1">response</span><span class="s2">.</span><span class="s1">content</span><span class="s2">))</span>
+                        <span class="s0">except </span><span class="s1">Exception </span><span class="s0">as </span><span class="s1">e</span><span class="s2">:</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">error</span><span class="s2">(</span><span class="s4">f&quot;Error generating response: </span><span class="s0">{</span><span class="s1">e</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+            <span class="s3"># Chat input</span>
+            <span class="s1">prompt </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_input</span><span class="s2">(</span><span class="s4">&quot;Ask me anything about synthetic data...&quot;</span><span class="s2">)</span>
+            <span class="s0">if </span><span class="s1">prompt</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s1">HumanMessage</span><span class="s2">(</span><span class="s1">content</span><span class="s2">=</span><span class="s1">prompt</span><span class="s2">))</span>
+                <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_message</span><span class="s2">(</span><span class="s4">&quot;user&quot;</span><span class="s2">, </span><span class="s1">avatar</span><span class="s2">=</span><span class="s4">&quot;🧑&quot;</span><span class="s2">):</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s1">prompt</span><span class="s2">)</span>
+                <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">chat_message</span><span class="s2">(</span><span class="s4">&quot;assistant&quot;</span><span class="s2">, </span><span class="s1">avatar</span><span class="s2">=</span><span class="s4">&quot;🤖&quot;</span><span class="s2">):</span>
+                    <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">spinner</span><span class="s2">(</span><span class="s4">&quot;Thinking...&quot;</span><span class="s2">):</span>
+                        <span class="s0">try</span><span class="s2">:</span>
+                            <span class="s1">response </span><span class="s2">= </span><span class="s1">llm</span><span class="s2">.</span><span class="s1">invoke</span><span class="s2">(</span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">)</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s1">response</span><span class="s2">.</span><span class="s1">content</span><span class="s2">)</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s1">AIMessage</span><span class="s2">(</span><span class="s1">content</span><span class="s2">=</span><span class="s1">response</span><span class="s2">.</span><span class="s1">content</span><span class="s2">))</span>
+                        <span class="s0">except </span><span class="s1">Exception </span><span class="s0">as </span><span class="s1">e</span><span class="s2">:</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">error</span><span class="s2">(</span><span class="s4">f&quot;Error generating response: </span><span class="s0">{</span><span class="s1">e</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+            <span class="s3"># Suggested questions</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;### 💡 Suggested Questions&quot;</span><span class="s2">)</span>
+            <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2</span><span class="s2">, </span><span class="s1">col3</span><span class="s2">, </span><span class="s1">col4 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">(</span><span class="s6">4</span><span class="s2">)</span>
+
+            <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;What are GANs?&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">, </span><span class="s1">key</span><span class="s2">=</span><span class="s4">&quot;q1&quot;</span><span class="s2">):</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question </span><span class="s2">= </span><span class="s4">&quot;What are GANs and how do they work for synthetic data?&quot;</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">rerun</span><span class="s2">()</span>
+
+            <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;Privacy techniques?&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">, </span><span class="s1">key</span><span class="s2">=</span><span class="s4">&quot;q2&quot;</span><span class="s2">):</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question </span><span class="s2">= </span><span class="s4">&quot;What privacy preservation techniques are used in synthetic data?&quot;</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">rerun</span><span class="s2">()</span>
+
+            <span class="s0">with </span><span class="s1">col3</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;Healthcare use cases?&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">, </span><span class="s1">key</span><span class="s2">=</span><span class="s4">&quot;q3&quot;</span><span class="s2">):</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question </span><span class="s2">= </span><span class="s4">&quot;What are the main use cases for synthetic data in healthcare?&quot;</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">rerun</span><span class="s2">()</span>
+
+            <span class="s0">with </span><span class="s1">col4</span><span class="s2">:</span>
+                <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;k-Anonymity vs l-Diversity?&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">, </span><span class="s1">key</span><span class="s2">=</span><span class="s4">&quot;q4&quot;</span><span class="s2">):</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">pending_question </span><span class="s2">= </span><span class="s4">&quot;What's the difference between k-anonymity and l-diversity? When should I use each?&quot;</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">rerun</span><span class="s2">()</span>
+
+            <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;🗑️ Clear Conversation&quot;</span><span class="s2">, </span><span class="s1">key</span><span class="s2">=</span><span class="s4">&quot;clear_chat&quot;</span><span class="s2">):</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">chat_history </span><span class="s2">= [</span>
+                    <span class="s1">AIMessage</span><span class="s2">(</span>
+                        <span class="s1">content</span><span class="s2">=</span><span class="s4">&quot;Hello! I'm your synthetic data tutor. Ask me anything about privacy, generation, metrics, or applications!&quot;</span><span class="s2">)</span>
+                <span class="s2">]</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">rerun</span><span class="s2">()</span>
+        <span class="s0">else</span><span class="s2">:</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;&quot;&quot; 
+                &lt;div class='info-box'&gt; 
+                &lt;strong&gt;AI Assistant Setup Required&lt;/strong&gt;&lt;br&gt; 
+                To use the AI Education Assistant, please install Ollama: 
+                &lt;ol&gt; 
+                    &lt;li&gt;Install Ollama from &lt;a href=&quot;https://ollama.ai&quot;&gt;ollama.ai&lt;/a&gt;&lt;/li&gt; 
+                    &lt;li&gt;Run: &lt;code&gt;ollama pull phi3:mini&lt;/code&gt;&lt;/li&gt; 
+                    &lt;li&gt;Restart this application&lt;/li&gt; 
+                &lt;/ol&gt; 
+                The Data Generator and Healthcare Simulator will still work without Ollama. 
+                &lt;/div&gt; 
+                &quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+    <span class="s0">except </span><span class="s1">ImportError</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">warning</span><span class="s2">(</span><span class="s4">&quot;LangChain not available. Please install with: pip install langchain-community langchain-core&quot;</span><span class="s2">)</span>
+
+<span class="s3"># Tab 2: Advanced Synthetic Data Generator</span>
+<span class="s0">with </span><span class="s1">tab2</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;### 🔬 Advanced Synthetic Data Generation Tool&quot;</span><span class="s2">)</span>
+
+    <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">([</span><span class="s6">1</span><span class="s2">, </span><span class="s6">1</span><span class="s2">])</span>
+
+    <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 📊 Upload Your Data&quot;</span><span class="s2">)</span>
+        <span class="s1">uploaded_file </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">file_uploader</span><span class="s2">(</span><span class="s4">&quot;Choose a CSV file&quot;</span><span class="s2">, </span><span class="s1">type</span><span class="s2">=</span><span class="s4">&quot;csv&quot;</span><span class="s2">)</span>
+
+        <span class="s0">if </span><span class="s1">uploaded_file </span><span class="s0">is not None</span><span class="s2">:</span>
+            <span class="s1">df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">read_csv</span><span class="s2">(</span><span class="s1">uploaded_file</span><span class="s2">)</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">success</span><span class="s2">(</span><span class="s4">f&quot;✅ Loaded </span><span class="s0">{</span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">)</span><span class="s0">} </span><span class="s4">rows and </span><span class="s0">{</span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">)</span><span class="s0">} </span><span class="s4">columns&quot;</span><span class="s2">)</span>
+
+            <span class="s3"># Data preview</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 👀 Data Preview&quot;</span><span class="s2">)</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">df</span><span class="s2">.</span><span class="s1">head</span><span class="s2">(), </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s3"># Statistical analysis</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 📈 Statistical Analysis&quot;</span><span class="s2">)</span>
+
+            <span class="s1">numeric_cols </span><span class="s2">= </span><span class="s1">df</span><span class="s2">.</span><span class="s1">select_dtypes</span><span class="s2">(</span><span class="s1">include</span><span class="s2">=[</span><span class="s1">np</span><span class="s2">.</span><span class="s1">number</span><span class="s2">]).</span><span class="s1">columns</span><span class="s2">.</span><span class="s1">tolist</span><span class="s2">()</span>
+            <span class="s0">if </span><span class="s1">numeric_cols</span><span class="s2">:</span>
+                <span class="s1">stats_df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">({</span>
+                    <span class="s4">'Mean'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">(),</span>
+                    <span class="s4">'Median'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">median</span><span class="s2">(),</span>
+                    <span class="s4">'Std Dev'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">std</span><span class="s2">(),</span>
+                    <span class="s4">'Min'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">min</span><span class="s2">(),</span>
+                    <span class="s4">'Max'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">max</span><span class="s2">(),</span>
+                    <span class="s4">'Skewness'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">skew</span><span class="s2">()</span>
+                <span class="s2">}).</span><span class="s1">round</span><span class="s2">(</span><span class="s6">2</span><span class="s2">)</span>
+
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">stats_df</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">original_stats </span><span class="s2">= </span><span class="s1">stats_df</span>
+
+                <span class="s3"># Correlation matrix</span>
+                <span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">numeric_cols</span><span class="s2">) &gt; </span><span class="s6">1</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🔗 Correlation Matrix&quot;</span><span class="s2">)</span>
+                    <span class="s1">corr_matrix </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">numeric_cols</span><span class="s2">].</span><span class="s1">corr</span><span class="s2">()</span>
+                    <span class="s1">fig </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">imshow</span><span class="s2">(</span><span class="s1">corr_matrix</span><span class="s2">,</span>
+                                    <span class="s1">color_continuous_scale</span><span class="s2">=</span><span class="s4">'RdBu'</span><span class="s2">,</span>
+                                    <span class="s1">aspect</span><span class="s2">=</span><span class="s4">'auto'</span><span class="s2">,</span>
+                                    <span class="s1">title</span><span class="s2">=</span><span class="s4">'Feature Correlations'</span><span class="s2">)</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+    <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### ⚙️ Generation Settings&quot;</span><span class="s2">)</span>
+
+        <span class="s0">if </span><span class="s1">uploaded_file </span><span class="s0">is not None</span><span class="s2">:</span>
+            <span class="s1">num_samples </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;Number of synthetic samples&quot;</span><span class="s2">, </span><span class="s6">10</span><span class="s2">, </span><span class="s6">10000</span><span class="s2">, </span><span class="s6">1000</span><span class="s2">)</span>
+
+            <span class="s1">generation_method </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span>
+                <span class="s4">&quot;Generation Method&quot;</span><span class="s2">,</span>
+                <span class="s2">[</span><span class="s4">&quot;Statistical Sampling&quot;</span><span class="s2">, </span><span class="s4">&quot;Gaussian Copula&quot;</span><span class="s2">, </span><span class="s4">&quot;Random Perturbation&quot;</span><span class="s2">, </span><span class="s4">&quot;Bootstrap Sampling&quot;</span><span class="s2">]</span>
+            <span class="s2">)</span>
+
+            <span class="s1">privacy_level </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">select_slider</span><span class="s2">(</span>
+                <span class="s4">&quot;Privacy Level&quot;</span><span class="s2">,</span>
+                <span class="s1">options</span><span class="s2">=[</span><span class="s4">&quot;Low&quot;</span><span class="s2">, </span><span class="s4">&quot;Medium&quot;</span><span class="s2">, </span><span class="s4">&quot;High&quot;</span><span class="s2">],</span>
+                <span class="s1">value</span><span class="s2">=</span><span class="s4">&quot;Medium&quot;</span>
+            <span class="s2">)</span>
+
+            <span class="s1">preserve_correlations </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">checkbox</span><span class="s2">(</span><span class="s4">&quot;Preserve correlations&quot;</span><span class="s2">, </span><span class="s1">value</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+            <span class="s1">add_noise </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">checkbox</span><span class="s2">(</span><span class="s4">&quot;Add statistical noise&quot;</span><span class="s2">, </span><span class="s1">value</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s3"># Store settings in session state</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">generation_method </span><span class="s2">= </span><span class="s1">generation_method</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">privacy_level </span><span class="s2">= </span><span class="s1">privacy_level</span>
+
+            <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;🚀 Generate Synthetic Data&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">):</span>
+                <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">spinner</span><span class="s2">(</span><span class="s4">&quot;Generating synthetic data...&quot;</span><span class="s2">):</span>
+                    <span class="s3"># Generate synthetic data based on method</span>
+                    <span class="s0">if </span><span class="s1">generation_method </span><span class="s2">== </span><span class="s4">&quot;Statistical Sampling&quot;</span><span class="s2">:</span>
+                        <span class="s1">synthetic_df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">()</span>
+                        <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">:</span>
+                            <span class="s0">if </span><span class="s1">col </span><span class="s0">in </span><span class="s1">numeric_cols</span><span class="s2">:</span>
+                                <span class="s1">mean </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()</span>
+                                <span class="s1">std </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">()</span>
+                                <span class="s0">if </span><span class="s1">add_noise</span><span class="s2">:</span>
+                                    <span class="s1">noise_factor </span><span class="s2">= {</span><span class="s4">&quot;Low&quot;</span><span class="s2">: </span><span class="s6">0.05</span><span class="s2">, </span><span class="s4">&quot;Medium&quot;</span><span class="s2">: </span><span class="s6">0.1</span><span class="s2">, </span><span class="s4">&quot;High&quot;</span><span class="s2">: </span><span class="s6">0.2</span><span class="s2">}[</span><span class="s1">privacy_level</span><span class="s2">]</span>
+                                    <span class="s1">std </span><span class="s2">= </span><span class="s1">std </span><span class="s2">* (</span><span class="s6">1 </span><span class="s2">+ </span><span class="s1">noise_factor</span><span class="s2">)</span>
+                                <span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s1">mean</span><span class="s2">, </span><span class="s1">std</span><span class="s2">, </span><span class="s1">num_samples</span><span class="s2">)</span>
+                            <span class="s0">else</span><span class="s2">:</span>
+                                <span class="s3"># For categorical columns</span>
+                                <span class="s1">unique_vals </span><span class="s2">= </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">dropna</span><span class="s2">().</span><span class="s1">unique</span><span class="s2">()</span>
+                                <span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">(</span><span class="s1">unique_vals</span><span class="s2">, </span><span class="s1">num_samples</span><span class="s2">)</span>
+
+                    <span class="s0">elif </span><span class="s1">generation_method </span><span class="s2">== </span><span class="s4">&quot;Bootstrap Sampling&quot;</span><span class="s2">:</span>
+                        <span class="s1">synthetic_df </span><span class="s2">= </span><span class="s1">df</span><span class="s2">.</span><span class="s1">sample</span><span class="s2">(</span><span class="s1">n</span><span class="s2">=</span><span class="s1">num_samples</span><span class="s2">, </span><span class="s1">replace</span><span class="s2">=</span><span class="s0">True</span><span class="s2">).</span><span class="s1">reset_index</span><span class="s2">(</span><span class="s1">drop</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+                        <span class="s0">if </span><span class="s1">add_noise</span><span class="s2">:</span>
+                            <span class="s1">noise_factor </span><span class="s2">= {</span><span class="s4">&quot;Low&quot;</span><span class="s2">: </span><span class="s6">0.01</span><span class="s2">, </span><span class="s4">&quot;Medium&quot;</span><span class="s2">: </span><span class="s6">0.05</span><span class="s2">, </span><span class="s4">&quot;High&quot;</span><span class="s2">: </span><span class="s6">0.1</span><span class="s2">}[</span><span class="s1">privacy_level</span><span class="s2">]</span>
+                            <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">numeric_cols</span><span class="s2">:</span>
+                                <span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] += </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">0</span><span class="s2">, </span><span class="s1">df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">].</span><span class="s1">std</span><span class="s2">() * </span><span class="s1">noise_factor</span><span class="s2">, </span><span class="s1">num_samples</span><span class="s2">)</span>
+
+                    <span class="s0">else</span><span class="s2">:  </span><span class="s3"># Gaussian Copula or Random Perturbation</span>
+                        <span class="s1">synthetic_df </span><span class="s2">= </span><span class="s1">df</span><span class="s2">.</span><span class="s1">sample</span><span class="s2">(</span><span class="s1">n</span><span class="s2">=</span><span class="s1">min</span><span class="s2">(</span><span class="s1">num_samples</span><span class="s2">, </span><span class="s1">len</span><span class="s2">(</span><span class="s1">df</span><span class="s2">)), </span><span class="s1">replace</span><span class="s2">=</span><span class="s0">True</span><span class="s2">).</span><span class="s1">reset_index</span><span class="s2">(</span><span class="s1">drop</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+                        <span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">) &lt; </span><span class="s1">num_samples</span><span class="s2">:</span>
+                            <span class="s1">synthetic_df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">concat</span><span class="s2">([</span><span class="s1">synthetic_df</span><span class="s2">] * (</span><span class="s1">num_samples </span><span class="s2">// </span><span class="s1">len</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">) + </span><span class="s6">1</span><span class="s2">))[</span>
+                                           <span class="s2">:</span><span class="s1">num_samples</span><span class="s2">]</span>
+
+                        <span class="s0">if </span><span class="s1">add_noise</span><span class="s2">:</span>
+                            <span class="s1">noise_factor </span><span class="s2">= {</span><span class="s4">&quot;Low&quot;</span><span class="s2">: </span><span class="s6">0.02</span><span class="s2">, </span><span class="s4">&quot;Medium&quot;</span><span class="s2">: </span><span class="s6">0.08</span><span class="s2">, </span><span class="s4">&quot;High&quot;</span><span class="s2">: </span><span class="s6">0.15</span><span class="s2">}[</span><span class="s1">privacy_level</span><span class="s2">]</span>
+                            <span class="s0">for </span><span class="s1">col </span><span class="s0">in </span><span class="s1">numeric_cols</span><span class="s2">:</span>
+                                <span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] = </span><span class="s1">synthetic_df</span><span class="s2">[</span><span class="s1">col</span><span class="s2">] * (</span>
+                                            <span class="s6">1 </span><span class="s2">+ </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">0</span><span class="s2">, </span><span class="s1">noise_factor</span><span class="s2">, </span><span class="s1">len</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">)))</span>
+
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data </span><span class="s2">= </span><span class="s1">synthetic_df</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">success</span><span class="s2">(</span><span class="s4">f&quot;✅ Generated </span><span class="s0">{</span><span class="s1">len</span><span class="s2">(</span><span class="s1">synthetic_df</span><span class="s2">)</span><span class="s0">} </span><span class="s4">synthetic samples!&quot;</span><span class="s2">)</span>
+
+        <span class="s3"># Privacy Protection Section</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🔒 Privacy Protection &amp; Anonymization&quot;</span><span class="s2">)</span>
+
+        <span class="s0">if </span><span class="s1">uploaded_file </span><span class="s0">is not None</span><span class="s2">:</span>
+            <span class="s1">anonymization_technique </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span>
+                <span class="s4">&quot;Anonymization Technique&quot;</span><span class="s2">,</span>
+                <span class="s2">[</span><span class="s4">&quot;None&quot;</span><span class="s2">, </span><span class="s4">&quot;k-Anonymity&quot;</span><span class="s2">, </span><span class="s4">&quot;l-Diversity&quot;</span><span class="s2">, </span><span class="s4">&quot;Data Masking&quot;</span><span class="s2">, </span><span class="s4">&quot;Noise Addition&quot;</span><span class="s2">]</span>
+            <span class="s2">)</span>
+
+            <span class="s0">if </span><span class="s1">anonymization_technique </span><span class="s2">!= </span><span class="s4">&quot;None&quot;</span><span class="s2">:</span>
+                <span class="s1">quasi_identifiers </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">multiselect</span><span class="s2">(</span>
+                    <span class="s4">&quot;Select Quasi-Identifiers (columns that might identify individuals)&quot;</span><span class="s2">,</span>
+                    <span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">.</span><span class="s1">tolist</span><span class="s2">(),</span>
+                    <span class="s1">help</span><span class="s2">=</span><span class="s4">&quot;Choose columns that could be used to identify individuals when combined&quot;</span>
+                <span class="s2">)</span>
+
+                <span class="s3"># Technique-specific parameters</span>
+                <span class="s1">params </span><span class="s2">= {}</span>
+                <span class="s0">if </span><span class="s1">anonymization_technique </span><span class="s2">== </span><span class="s4">&quot;k-Anonymity&quot;</span><span class="s2">:</span>
+                    <span class="s1">params</span><span class="s2">[</span><span class="s4">'k_value'</span><span class="s2">] = </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;k-value (minimum group size)&quot;</span><span class="s2">, </span><span class="s6">2</span><span class="s2">, </span><span class="s6">10</span><span class="s2">, </span><span class="s6">5</span><span class="s2">)</span>
+                <span class="s0">elif </span><span class="s1">anonymization_technique </span><span class="s2">== </span><span class="s4">&quot;l-Diversity&quot;</span><span class="s2">:</span>
+                    <span class="s1">params</span><span class="s2">[</span><span class="s4">'l_value'</span><span class="s2">] = </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;l-value (minimum diversity)&quot;</span><span class="s2">, </span><span class="s6">2</span><span class="s2">, </span><span class="s6">5</span><span class="s2">, </span><span class="s6">3</span><span class="s2">)</span>
+                    <span class="s1">params</span><span class="s2">[</span><span class="s4">'sensitive_attr'</span><span class="s2">] = </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span><span class="s4">&quot;Sensitive Attribute&quot;</span><span class="s2">, </span><span class="s1">df</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">)</span>
+                <span class="s0">elif </span><span class="s1">anonymization_technique </span><span class="s2">== </span><span class="s4">&quot;Noise Addition&quot;</span><span class="s2">:</span>
+                    <span class="s1">params</span><span class="s2">[</span><span class="s4">'noise_level'</span><span class="s2">] = </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;Noise Level&quot;</span><span class="s2">, </span><span class="s6">0.01</span><span class="s2">, </span><span class="s6">0.5</span><span class="s2">, </span><span class="s6">0.1</span><span class="s2">)</span>
+
+                <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;🛡️ Apply Anonymization&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">):</span>
+                    <span class="s0">if </span><span class="s1">quasi_identifiers</span><span class="s2">:</span>
+                        <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">spinner</span><span class="s2">(</span><span class="s4">&quot;Applying anonymization...&quot;</span><span class="s2">):</span>
+                            <span class="s1">anonymized_data </span><span class="s2">= </span><span class="s1">apply_anonymization_techniques</span><span class="s2">(</span><span class="s1">df</span><span class="s2">, </span><span class="s1">anonymization_technique</span><span class="s2">,</span>
+                                                                             <span class="s1">quasi_identifiers</span><span class="s2">, </span><span class="s1">params</span><span class="s2">)</span>
+
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🔍 Anonymized Data Preview&quot;</span><span class="s2">)</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">anonymized_data</span><span class="s2">.</span><span class="s1">head</span><span class="s2">(), </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                            <span class="s3"># Show anonymization summary</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">info</span><span class="s2">(</span>
+                                <span class="s4">f&quot;Applied </span><span class="s0">{</span><span class="s1">anonymization_technique</span><span class="s0">} </span><span class="s4">to </span><span class="s0">{</span><span class="s1">len</span><span class="s2">(</span><span class="s1">quasi_identifiers</span><span class="s2">)</span><span class="s0">} </span><span class="s4">quasi-identifier columns&quot;</span><span class="s2">)</span>
+
+                            <span class="s1">csv </span><span class="s2">= </span><span class="s1">anonymized_data</span><span class="s2">.</span><span class="s1">to_csv</span><span class="s2">(</span><span class="s1">index</span><span class="s2">=</span><span class="s0">False</span><span class="s2">)</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">download_button</span><span class="s2">(</span>
+                                <span class="s4">&quot;📥 Download Anonymized Data&quot;</span><span class="s2">,</span>
+                                <span class="s1">csv</span><span class="s2">,</span>
+                                <span class="s4">f&quot;anonymized_data_</span><span class="s0">{</span><span class="s1">anonymization_technique</span><span class="s0">}</span><span class="s4">_</span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">strftime</span><span class="s2">(</span><span class="s4">'%Y%m%d_%H%M%S'</span><span class="s2">)</span><span class="s0">}</span><span class="s4">.csv&quot;</span><span class="s2">,</span>
+                                <span class="s4">&quot;text/csv&quot;</span><span class="s2">,</span>
+                                <span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span>
+                            <span class="s2">)</span>
+                    <span class="s0">else</span><span class="s2">:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">warning</span><span class="s2">(</span><span class="s4">&quot;Please select at least one quasi-identifier column&quot;</span><span class="s2">)</span>
+
+    <span class="s3"># Display synthetic data results</span>
+    <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data </span><span class="s0">is not None and </span><span class="s1">uploaded_file </span><span class="s0">is not None</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;---&quot;</span><span class="s2">)</span>
+
+        <span class="s3"># Create tabs for different views of results</span>
+        <span class="s1">result_tabs </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">tabs</span><span class="s2">(</span>
+            <span class="s2">[</span><span class="s4">&quot;📊 Data Preview&quot;</span><span class="s2">, </span><span class="s4">&quot;🛡️ Privacy Dashboard&quot;</span><span class="s2">, </span><span class="s4">&quot;📈 Quality Report&quot;</span><span class="s2">, </span><span class="s4">&quot;📋 Statistical Comparison&quot;</span><span class="s2">])</span>
+
+        <span class="s0">with </span><span class="s1">result_tabs</span><span class="s2">[</span><span class="s6">0</span><span class="s2">]:</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 📊 Synthetic Data Preview&quot;</span><span class="s2">)</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">.</span><span class="s1">head</span><span class="s2">(</span><span class="s6">20</span><span class="s2">), </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s3"># Download button</span>
+            <span class="s1">csv </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">.</span><span class="s1">to_csv</span><span class="s2">(</span><span class="s1">index</span><span class="s2">=</span><span class="s0">False</span><span class="s2">)</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">download_button</span><span class="s2">(</span>
+                <span class="s1">label</span><span class="s2">=</span><span class="s4">&quot;📥 Download Synthetic Data&quot;</span><span class="s2">,</span>
+                <span class="s1">data</span><span class="s2">=</span><span class="s1">csv</span><span class="s2">,</span>
+                <span class="s1">file_name</span><span class="s2">=</span><span class="s4">f&quot;synthetic_data_</span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">strftime</span><span class="s2">(</span><span class="s4">'%Y%m%d_%H%M%S'</span><span class="s2">)</span><span class="s0">}</span><span class="s4">.csv&quot;</span><span class="s2">,</span>
+                <span class="s1">mime</span><span class="s2">=</span><span class="s4">&quot;text/csv&quot;</span><span class="s2">,</span>
+                <span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span>
+            <span class="s2">)</span>
+
+        <span class="s0">with </span><span class="s1">result_tabs</span><span class="s2">[</span><span class="s6">1</span><span class="s2">]:</span>
+            <span class="s3"># Privacy Risk Dashboard</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🛡️ Privacy Risk Assessment&quot;</span><span class="s2">)</span>
+
+            <span class="s1">risks </span><span class="s2">= </span><span class="s1">assess_privacy_risk</span><span class="s2">(</span><span class="s1">df</span><span class="s2">, </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">)</span>
+
+            <span class="s3"># Risk level indicator</span>
+            <span class="s1">risk_classes </span><span class="s2">= {</span><span class="s4">'Low'</span><span class="s2">: </span><span class="s4">'risk-low'</span><span class="s2">, </span><span class="s4">'Medium'</span><span class="s2">: </span><span class="s4">'risk-medium'</span><span class="s2">, </span><span class="s4">'High'</span><span class="s2">: </span><span class="s4">'risk-high'</span><span class="s2">}</span>
+            <span class="s1">risk_class </span><span class="s2">= </span><span class="s1">risk_classes</span><span class="s2">[</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">]]</span>
+
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">f&quot;&quot;&quot;</span>
+            <span class="s4">&lt;div class='</span><span class="s0">{</span><span class="s1">risk_class</span><span class="s0">}</span><span class="s4">' style='text-align: center; padding: 1rem; border-radius: 10px; margin: 1rem 0;'&gt;</span>
+            <span class="s4">&lt;h3 style='margin: 0;'&gt;Overall Privacy Risk: </span><span class="s0">{</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">]</span><span class="s0">}</span><span class="s4">&lt;/h3&gt;</span>
+            <span class="s4">&lt;/div&gt;</span>
+            <span class="s4">&quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s3"># Risk metrics</span>
+            <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2</span><span class="s2">, </span><span class="s1">col3</span><span class="s2">, </span><span class="s1">col4 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">(</span><span class="s6">4</span><span class="s2">)</span>
+            <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Membership Inference Risk&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'membership_inference_risk'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+            <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Attribute Inference Risk&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'attribute_inference_risk'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+            <span class="s0">with </span><span class="s1">col3</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Linkability Risk&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'linkability_risk'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+            <span class="s0">with </span><span class="s1">col4</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Data Uniqueness&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'uniqueness_risk'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+
+            <span class="s3"># Risk visualization</span>
+            <span class="s1">risk_data </span><span class="s2">= {</span>
+                <span class="s4">'Risk Type'</span><span class="s2">: [</span><span class="s4">'Membership Inference'</span><span class="s2">, </span><span class="s4">'Attribute Inference'</span><span class="s2">, </span><span class="s4">'Linkability'</span><span class="s2">, </span><span class="s4">'Uniqueness'</span><span class="s2">],</span>
+                <span class="s4">'Risk Level'</span><span class="s2">: [</span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'membership_inference_risk'</span><span class="s2">], </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'attribute_inference_risk'</span><span class="s2">],</span>
+                               <span class="s1">risks</span><span class="s2">[</span><span class="s4">'linkability_risk'</span><span class="s2">], </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'uniqueness_risk'</span><span class="s2">]]</span>
+            <span class="s2">}</span>
+
+            <span class="s1">fig </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">bar</span><span class="s2">(</span><span class="s1">risk_data</span><span class="s2">, </span><span class="s1">x</span><span class="s2">=</span><span class="s4">'Risk Type'</span><span class="s2">, </span><span class="s1">y</span><span class="s2">=</span><span class="s4">'Risk Level'</span><span class="s2">,</span>
+                         <span class="s1">title</span><span class="s2">=</span><span class="s4">'Privacy Risk Breakdown'</span><span class="s2">,</span>
+                         <span class="s1">color</span><span class="s2">=</span><span class="s4">'Risk Level'</span><span class="s2">,</span>
+                         <span class="s1">color_continuous_scale</span><span class="s2">=[</span><span class="s4">'green'</span><span class="s2">, </span><span class="s4">'yellow'</span><span class="s2">, </span><span class="s4">'red'</span><span class="s2">])</span>
+            <span class="s1">fig</span><span class="s2">.</span><span class="s1">update_layout</span><span class="s2">(</span><span class="s1">showlegend</span><span class="s2">=</span><span class="s0">False</span><span class="s2">)</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s3"># Recommendations</span>
+            <span class="s0">if </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">]:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### 🚨 Privacy Recommendations:&quot;</span><span class="s2">)</span>
+                <span class="s0">for </span><span class="s1">rec </span><span class="s0">in </span><span class="s1">risks</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">]:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">write</span><span class="s2">(</span><span class="s4">f&quot;• </span><span class="s0">{</span><span class="s1">rec</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+        <span class="s0">with </span><span class="s1">result_tabs</span><span class="s2">[</span><span class="s6">2</span><span class="s2">]:</span>
+            <span class="s3"># Data Quality Report</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 📈 Comprehensive Quality Report&quot;</span><span class="s2">)</span>
+
+            <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;🔍 Generate Detailed Quality Report&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">):</span>
+                <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">spinner</span><span class="s2">(</span><span class="s4">&quot;Generating comprehensive quality report...&quot;</span><span class="s2">):</span>
+                    <span class="s1">report </span><span class="s2">= </span><span class="s1">generate_data_quality_report</span><span class="s2">(</span>
+                        <span class="s1">df</span><span class="s2">,</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">,</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">generation_method</span><span class="s2">,</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">privacy_level</span>
+                    <span class="s2">)</span>
+
+                    <span class="s3"># Display overall quality score</span>
+                    <span class="s1">quality_score </span><span class="s2">= </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'overall_quality_score'</span><span class="s2">]</span>
+                    <span class="s1">quality_color </span><span class="s2">= </span><span class="s4">'green' </span><span class="s0">if </span><span class="s1">quality_score </span><span class="s2">&gt; </span><span class="s6">80 </span><span class="s0">else </span><span class="s4">'orange' </span><span class="s0">if </span><span class="s1">quality_score </span><span class="s2">&gt; </span><span class="s6">60 </span><span class="s0">else </span><span class="s4">'red'</span>
+
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">f&quot;&quot;&quot;</span>
+                    <span class="s4">&lt;div style='text-align: center; padding: 1rem; background-color: </span><span class="s0">{</span><span class="s1">quality_color</span><span class="s0">}</span><span class="s4">20; </span>
+                              <span class="s4">border: 2px solid </span><span class="s0">{</span><span class="s1">quality_color</span><span class="s0">}</span><span class="s4">; border-radius: 10px; margin: 1rem 0;'&gt;</span>
+                    <span class="s4">&lt;h3 style='color: </span><span class="s0">{</span><span class="s1">quality_color</span><span class="s0">}</span><span class="s4">; margin: 0;'&gt;Overall Quality Score: </span><span class="s0">{</span><span class="s1">quality_score</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">/100&lt;/h3&gt;</span>
+                    <span class="s4">&lt;/div&gt;</span>
+                    <span class="s4">&quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                    <span class="s3"># Statistical comparison summary</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### 📊 Statistical Comparison Summary&quot;</span><span class="s2">)</span>
+                    <span class="s0">if </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'statistical_comparison'</span><span class="s2">]:</span>
+                        <span class="s1">comparison_data </span><span class="s2">= []</span>
+                        <span class="s0">for </span><span class="s1">col</span><span class="s2">, </span><span class="s1">stats </span><span class="s0">in </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'statistical_comparison'</span><span class="s2">].</span><span class="s1">items</span><span class="s2">():</span>
+                            <span class="s1">comparison_data</span><span class="s2">.</span><span class="s1">append</span><span class="s2">({</span>
+                                <span class="s4">'Column'</span><span class="s2">: </span><span class="s1">col</span><span class="s2">,</span>
+                                <span class="s4">'Mean Difference (%)'</span><span class="s2">: </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">stats</span><span class="s2">[</span><span class="s4">'mean_difference_pct'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.2f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">,</span>
+                                <span class="s4">'Std Difference (%)'</span><span class="s2">: </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">stats</span><span class="s2">[</span><span class="s4">'std_difference_pct'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.2f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">,</span>
+                                <span class="s4">'Distribution Match'</span><span class="s2">: </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">][</span><span class="s1">col</span><span class="s2">].</span><span class="s1">get</span><span class="s2">(</span><span class="s4">'distribution_similarity'</span><span class="s2">,</span>
+                                                                                            <span class="s4">'N/A'</span><span class="s2">)</span>
+                            <span class="s2">})</span>
+
+                        <span class="s1">comparison_df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">(</span><span class="s1">comparison_data</span><span class="s2">)</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">comparison_df</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                    <span class="s3"># Distribution test results</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### 🎯 Distribution Test Results&quot;</span><span class="s2">)</span>
+                    <span class="s1">dist_results </span><span class="s2">= []</span>
+                    <span class="s0">for </span><span class="s1">col</span><span class="s2">, </span><span class="s1">test_result </span><span class="s0">in </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'distribution_tests'</span><span class="s2">].</span><span class="s1">items</span><span class="s2">():</span>
+                        <span class="s0">if </span><span class="s4">'ks_pvalue' </span><span class="s0">in </span><span class="s1">test_result</span><span class="s2">:</span>
+                            <span class="s1">dist_results</span><span class="s2">.</span><span class="s1">append</span><span class="s2">({</span>
+                                <span class="s4">'Column'</span><span class="s2">: </span><span class="s1">col</span><span class="s2">,</span>
+                                <span class="s4">'KS Statistic'</span><span class="s2">: </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">test_result</span><span class="s2">[</span><span class="s4">'ks_statistic'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.4f</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">,</span>
+                                <span class="s4">'P-Value'</span><span class="s2">: </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">test_result</span><span class="s2">[</span><span class="s4">'ks_pvalue'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.4f</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">,</span>
+                                <span class="s4">'Similarity Score'</span><span class="s2">: </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">test_result</span><span class="s2">[</span><span class="s4">'similarity_score'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.2f</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">,</span>
+                                <span class="s4">'Status'</span><span class="s2">: </span><span class="s1">test_result</span><span class="s2">[</span><span class="s4">'distribution_similarity'</span><span class="s2">]</span>
+                            <span class="s2">})</span>
+
+                    <span class="s0">if </span><span class="s1">dist_results</span><span class="s2">:</span>
+                        <span class="s1">dist_df </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">(</span><span class="s1">dist_results</span><span class="s2">)</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">dist_df</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                    <span class="s3"># Recommendations</span>
+                    <span class="s0">if </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">]:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### 💡 Quality Improvement Recommendations:&quot;</span><span class="s2">)</span>
+                        <span class="s0">for </span><span class="s1">i</span><span class="s2">, </span><span class="s1">rec </span><span class="s0">in </span><span class="s1">enumerate</span><span class="s2">(</span><span class="s1">report</span><span class="s2">[</span><span class="s4">'recommendations'</span><span class="s2">], </span><span class="s6">1</span><span class="s2">):</span>
+                            <span class="s1">st</span><span class="s2">.</span><span class="s1">write</span><span class="s2">(</span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">i</span><span class="s0">}</span><span class="s4">. </span><span class="s0">{</span><span class="s1">rec</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+                    <span class="s3"># Privacy assessment summary</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### 🔒 Privacy Assessment Summary&quot;</span><span class="s2">)</span>
+                    <span class="s1">privacy_summary </span><span class="s2">= </span><span class="s1">report</span><span class="s2">[</span><span class="s4">'privacy_assessment'</span><span class="s2">]</span>
+                    <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2</span><span class="s2">, </span><span class="s1">col3 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">(</span><span class="s6">3</span><span class="s2">)</span>
+                    <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Overall Privacy Risk&quot;</span><span class="s2">, </span><span class="s1">privacy_summary</span><span class="s2">[</span><span class="s4">'overall_risk'</span><span class="s2">])</span>
+                    <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Membership Risk&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">privacy_summary</span><span class="s2">[</span><span class="s4">'membership_inference_risk'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+                    <span class="s0">with </span><span class="s1">col3</span><span class="s2">:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Attribute Risk&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">privacy_summary</span><span class="s2">[</span><span class="s4">'attribute_inference_risk'</span><span class="s2">]</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+
+                    <span class="s3"># Download full report</span>
+                    <span class="s1">report_json </span><span class="s2">= </span><span class="s1">json</span><span class="s2">.</span><span class="s1">dumps</span><span class="s2">(</span><span class="s1">report</span><span class="s2">, </span><span class="s1">indent</span><span class="s2">=</span><span class="s6">2</span><span class="s2">)</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">download_button</span><span class="s2">(</span>
+                        <span class="s4">&quot;📥 Download Full Quality Report (JSON)&quot;</span><span class="s2">,</span>
+                        <span class="s1">report_json</span><span class="s2">,</span>
+                        <span class="s4">f&quot;quality_report_</span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">strftime</span><span class="s2">(</span><span class="s4">'%Y%m%d_%H%M%S'</span><span class="s2">)</span><span class="s0">}</span><span class="s4">.json&quot;</span><span class="s2">,</span>
+                        <span class="s4">&quot;application/json&quot;</span><span class="s2">,</span>
+                        <span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span>
+                    <span class="s2">)</span>
+
+        <span class="s0">with </span><span class="s1">result_tabs</span><span class="s2">[</span><span class="s6">3</span><span class="s2">]:</span>
+            <span class="s3"># Statistical Comparison</span>
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 📋 Statistical Comparison&quot;</span><span class="s2">)</span>
+            <span class="s1">synthetic_numeric </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">.</span><span class="s1">select_dtypes</span><span class="s2">(</span><span class="s1">include</span><span class="s2">=[</span><span class="s1">np</span><span class="s2">.</span><span class="s1">number</span><span class="s2">]).</span><span class="s1">columns</span><span class="s2">.</span><span class="s1">tolist</span><span class="s2">()</span>
+            <span class="s0">if </span><span class="s1">synthetic_numeric</span><span class="s2">:</span>
+                <span class="s1">synthetic_stats </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">({</span>
+                    <span class="s4">'Original Mean'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">(),</span>
+                    <span class="s4">'Synthetic Mean'</span><span class="s2">: </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">[</span><span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">(),</span>
+                    <span class="s4">'Original Std'</span><span class="s2">: </span><span class="s1">df</span><span class="s2">[</span><span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">std</span><span class="s2">(),</span>
+                    <span class="s4">'Synthetic Std'</span><span class="s2">: </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">[</span><span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">std</span><span class="s2">(),</span>
+                    <span class="s4">'Mean Difference (%)'</span><span class="s2">: </span><span class="s1">abs</span><span class="s2">(</span>
+                        <span class="s1">df</span><span class="s2">[</span><span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">() - </span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">[</span><span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()) / </span><span class="s1">df</span><span class="s2">[</span>
+                                               <span class="s1">synthetic_numeric</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">() * </span><span class="s6">100</span>
+                <span class="s2">}).</span><span class="s1">round</span><span class="s2">(</span><span class="s6">2</span><span class="s2">)</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">synthetic_stats</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s3"># Visual comparison</span>
+                <span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">synthetic_numeric</span><span class="s2">) &gt; </span><span class="s6">0</span><span class="s2">:</span>
+                    <span class="s1">selected_col </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span><span class="s4">&quot;Select column for distribution comparison&quot;</span><span class="s2">, </span><span class="s1">synthetic_numeric</span><span class="s2">)</span>
+
+                    <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">(</span><span class="s6">2</span><span class="s2">)</span>
+                    <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+                        <span class="s1">fig1 </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">histogram</span><span class="s2">(</span><span class="s1">df</span><span class="s2">, </span><span class="s1">x</span><span class="s2">=</span><span class="s1">selected_col</span><span class="s2">, </span><span class="s1">title</span><span class="s2">=</span><span class="s4">f&quot;Original </span><span class="s0">{</span><span class="s1">selected_col</span><span class="s0">} </span><span class="s4">Distribution&quot;</span><span class="s2">,</span>
+                                            <span class="s1">nbins</span><span class="s2">=</span><span class="s6">30</span><span class="s2">, </span><span class="s1">opacity</span><span class="s2">=</span><span class="s6">0.7</span><span class="s2">, </span><span class="s1">color_discrete_sequence</span><span class="s2">=[</span><span class="s4">'#00693e'</span><span class="s2">])</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig1</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                    <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+                        <span class="s1">fig2 </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">histogram</span><span class="s2">(</span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">, </span><span class="s1">x</span><span class="s2">=</span><span class="s1">selected_col</span><span class="s2">,</span>
+                                            <span class="s1">title</span><span class="s2">=</span><span class="s4">f&quot;Synthetic </span><span class="s0">{</span><span class="s1">selected_col</span><span class="s0">} </span><span class="s4">Distribution&quot;</span><span class="s2">,</span>
+                                            <span class="s1">nbins</span><span class="s2">=</span><span class="s6">30</span><span class="s2">, </span><span class="s1">opacity</span><span class="s2">=</span><span class="s6">0.7</span><span class="s2">, </span><span class="s1">color_discrete_sequence</span><span class="s2">=[</span><span class="s4">'#FFA500'</span><span class="s2">])</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig2</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                    <span class="s3"># Overlay comparison</span>
+                    <span class="s1">fig_overlay </span><span class="s2">= </span><span class="s1">go</span><span class="s2">.</span><span class="s1">Figure</span><span class="s2">()</span>
+                    <span class="s1">fig_overlay</span><span class="s2">.</span><span class="s1">add_trace</span><span class="s2">(</span><span class="s1">go</span><span class="s2">.</span><span class="s1">Histogram</span><span class="s2">(</span><span class="s1">x</span><span class="s2">=</span><span class="s1">df</span><span class="s2">[</span><span class="s1">selected_col</span><span class="s2">], </span><span class="s1">name</span><span class="s2">=</span><span class="s4">'Original'</span><span class="s2">,</span>
+                                                       <span class="s1">opacity</span><span class="s2">=</span><span class="s6">0.7</span><span class="s2">, </span><span class="s1">marker_color</span><span class="s2">=</span><span class="s4">'#00693e'</span><span class="s2">))</span>
+                    <span class="s1">fig_overlay</span><span class="s2">.</span><span class="s1">add_trace</span><span class="s2">(</span><span class="s1">go</span><span class="s2">.</span><span class="s1">Histogram</span><span class="s2">(</span><span class="s1">x</span><span class="s2">=</span><span class="s1">st</span><span class="s2">.</span><span class="s1">session_state</span><span class="s2">.</span><span class="s1">synthetic_data</span><span class="s2">[</span><span class="s1">selected_col</span><span class="s2">],</span>
+                                                       <span class="s1">name</span><span class="s2">=</span><span class="s4">'Synthetic'</span><span class="s2">, </span><span class="s1">opacity</span><span class="s2">=</span><span class="s6">0.7</span><span class="s2">, </span><span class="s1">marker_color</span><span class="s2">=</span><span class="s4">'#FFA500'</span><span class="s2">))</span>
+                    <span class="s1">fig_overlay</span><span class="s2">.</span><span class="s1">update_layout</span><span class="s2">(</span><span class="s1">title</span><span class="s2">=</span><span class="s4">f&quot;Distribution Overlay: </span><span class="s0">{</span><span class="s1">selected_col</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">,</span>
+                                              <span class="s1">barmode</span><span class="s2">=</span><span class="s4">'overlay'</span><span class="s2">)</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig_overlay</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+<span class="s3"># Tab 3: Healthcare Simulator</span>
+<span class="s0">with </span><span class="s1">tab3</span><span class="s2">:</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;### 🏥 Markham Hospital Synthetic Data Simulator&quot;</span><span class="s2">)</span>
+    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;&quot;&quot; 
+        &lt;div class='info-box'&gt; 
+        &lt;strong&gt;Welcome, Markham Hospital Administrator!&lt;/strong&gt;&lt;br&gt; 
+        This specialized tool helps generate synthetic healthcare data for operational simulations and planning. 
+        All generated data is completely synthetic and HIPAA-compliant. 
+        &lt;/div&gt; 
+        &quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+    <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2</span><span class="s2">, </span><span class="s1">col3 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">([</span><span class="s6">1</span><span class="s2">, </span><span class="s6">1</span><span class="s2">, </span><span class="s6">1</span><span class="s2">])</span>
+
+    <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🎯 Simulation Scenario&quot;</span><span class="s2">)</span>
+        <span class="s1">scenario </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span>
+            <span class="s4">&quot;Select Healthcare Scenario&quot;</span><span class="s2">,</span>
+            <span class="s2">[</span><span class="s4">&quot;Emergency Department Flow&quot;</span><span class="s2">, </span><span class="s4">&quot;Patient Admission Patterns&quot;</span><span class="s2">, </span><span class="s4">&quot;Surgery Scheduling&quot;</span><span class="s2">,</span>
+             <span class="s4">&quot;Bed Occupancy Optimization&quot;</span><span class="s2">, </span><span class="s4">&quot;Staff Scheduling&quot;</span><span class="s2">, </span><span class="s4">&quot;Equipment Utilization&quot;</span><span class="s2">]</span>
+        <span class="s2">)</span>
+
+        <span class="s1">simulation_period </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span>
+            <span class="s4">&quot;Simulation Period&quot;</span><span class="s2">,</span>
+            <span class="s2">[</span><span class="s4">&quot;1 Week&quot;</span><span class="s2">, </span><span class="s4">&quot;1 Month&quot;</span><span class="s2">, </span><span class="s4">&quot;3 Months&quot;</span><span class="s2">, </span><span class="s4">&quot;6 Months&quot;</span><span class="s2">, </span><span class="s4">&quot;1 Year&quot;</span><span class="s2">]</span>
+        <span class="s2">)</span>
+
+        <span class="s1">department </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">multiselect</span><span class="s2">(</span>
+            <span class="s4">&quot;Departments&quot;</span><span class="s2">,</span>
+            <span class="s2">[</span><span class="s4">&quot;Emergency&quot;</span><span class="s2">, </span><span class="s4">&quot;ICU&quot;</span><span class="s2">, </span><span class="s4">&quot;Surgery&quot;</span><span class="s2">, </span><span class="s4">&quot;Cardiology&quot;</span><span class="s2">, </span><span class="s4">&quot;Pediatrics&quot;</span><span class="s2">, </span><span class="s4">&quot;Oncology&quot;</span><span class="s2">, </span><span class="s4">&quot;General Medicine&quot;</span><span class="s2">],</span>
+            <span class="s1">default</span><span class="s2">=[</span><span class="s4">&quot;Emergency&quot;</span><span class="s2">]</span>
+        <span class="s2">)</span>
+
+    <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 📊 Data Parameters&quot;</span><span class="s2">)</span>
+        <span class="s1">num_patients </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">number_input</span><span class="s2">(</span><span class="s4">&quot;Number of Patients&quot;</span><span class="s2">, </span><span class="s6">100</span><span class="s2">, </span><span class="s6">50000</span><span class="s2">, </span><span class="s6">5000</span><span class="s2">)</span>
+
+        <span class="s1">age_distribution </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">selectbox</span><span class="s2">(</span>
+            <span class="s4">&quot;Age Distribution&quot;</span><span class="s2">,</span>
+            <span class="s2">[</span><span class="s4">&quot;Markham Demographics&quot;</span><span class="s2">, </span><span class="s4">&quot;Uniform&quot;</span><span class="s2">, </span><span class="s4">&quot;Elderly Focused&quot;</span><span class="s2">, </span><span class="s4">&quot;Pediatric Focused&quot;</span><span class="s2">]</span>
+        <span class="s2">)</span>
+
+        <span class="s1">complexity_mix </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">select_slider</span><span class="s2">(</span>
+            <span class="s4">&quot;Case Complexity Mix&quot;</span><span class="s2">,</span>
+            <span class="s1">options</span><span class="s2">=[</span><span class="s4">&quot;Simple&quot;</span><span class="s2">, </span><span class="s4">&quot;Moderate&quot;</span><span class="s2">, </span><span class="s4">&quot;Complex&quot;</span><span class="s2">, </span><span class="s4">&quot;Critical&quot;</span><span class="s2">],</span>
+            <span class="s1">value</span><span class="s2">=</span><span class="s4">&quot;Moderate&quot;</span>
+        <span class="s2">)</span>
+
+        <span class="s1">seasonal_pattern </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">checkbox</span><span class="s2">(</span><span class="s4">&quot;Include seasonal patterns&quot;</span><span class="s2">, </span><span class="s1">value</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+        <span class="s1">include_covid </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">checkbox</span><span class="s2">(</span><span class="s4">&quot;Include COVID-19 impact modeling&quot;</span><span class="s2">, </span><span class="s1">value</span><span class="s2">=</span><span class="s0">False</span><span class="s2">)</span>
+
+    <span class="s0">with </span><span class="s1">col3</span><span class="s2">:</span>
+        <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🎲 Advanced Settings&quot;</span><span class="s2">)</span>
+
+        <span class="s1">wait_time_target </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;Target Wait Time (minutes)&quot;</span><span class="s2">, </span><span class="s6">15</span><span class="s2">, </span><span class="s6">180</span><span class="s2">, </span><span class="s6">60</span><span class="s2">)</span>
+        <span class="s1">bed_utilization </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;Target Bed Utilization (%)&quot;</span><span class="s2">, </span><span class="s6">50</span><span class="s2">, </span><span class="s6">95</span><span class="s2">, </span><span class="s6">80</span><span class="s2">)</span>
+        <span class="s1">staff_ratio </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">slider</span><span class="s2">(</span><span class="s4">&quot;Staff to Patient Ratio&quot;</span><span class="s2">, </span><span class="s6">0.1</span><span class="s2">, </span><span class="s6">1.0</span><span class="s2">, </span><span class="s6">0.3</span><span class="s2">)</span>
+
+        <span class="s1">include_costs </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">checkbox</span><span class="s2">(</span><span class="s4">&quot;Include cost analysis&quot;</span><span class="s2">, </span><span class="s1">value</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+        <span class="s1">include_outcomes </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">checkbox</span><span class="s2">(</span><span class="s4">&quot;Include patient outcomes&quot;</span><span class="s2">, </span><span class="s1">value</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+    <span class="s3"># Generate Healthcare Data</span>
+    <span class="s0">if </span><span class="s1">st</span><span class="s2">.</span><span class="s1">button</span><span class="s2">(</span><span class="s4">&quot;🏥 Generate Healthcare Simulation Data&quot;</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">):</span>
+        <span class="s0">with </span><span class="s1">st</span><span class="s2">.</span><span class="s1">spinner</span><span class="s2">(</span><span class="s4">&quot;Generating Markham Hospital simulation data...&quot;</span><span class="s2">):</span>
+
+            <span class="s3"># Generate synthetic patient data</span>
+            <span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">seed</span><span class="s2">(</span><span class="s6">42</span><span class="s2">)</span>
+
+            <span class="s3"># Date range based on simulation period</span>
+            <span class="s1">period_days </span><span class="s2">= {</span><span class="s4">&quot;1 Week&quot;</span><span class="s2">: </span><span class="s6">7</span><span class="s2">, </span><span class="s4">&quot;1 Month&quot;</span><span class="s2">: </span><span class="s6">30</span><span class="s2">, </span><span class="s4">&quot;3 Months&quot;</span><span class="s2">: </span><span class="s6">90</span><span class="s2">, </span><span class="s4">&quot;6 Months&quot;</span><span class="s2">: </span><span class="s6">180</span><span class="s2">, </span><span class="s4">&quot;1 Year&quot;</span><span class="s2">: </span><span class="s6">365</span><span class="s2">}</span>
+            <span class="s1">days </span><span class="s2">= </span><span class="s1">period_days</span><span class="s2">[</span><span class="s1">simulation_period</span><span class="s2">]</span>
+
+            <span class="s1">dates </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">date_range</span><span class="s2">(</span><span class="s1">start</span><span class="s2">=</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">(), </span><span class="s1">periods</span><span class="s2">=</span><span class="s1">num_patients</span><span class="s2">, </span><span class="s1">freq</span><span class="s2">=</span><span class="s4">f'</span><span class="s0">{</span><span class="s6">24 </span><span class="s2">* </span><span class="s1">days </span><span class="s2">/ </span><span class="s1">num_patients</span><span class="s0">}</span><span class="s4">H'</span><span class="s2">)</span>
+
+            <span class="s3"># Age distribution for Markham</span>
+            <span class="s0">if </span><span class="s1">age_distribution </span><span class="s2">== </span><span class="s4">&quot;Markham Demographics&quot;</span><span class="s2">:</span>
+                <span class="s1">ages </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">concatenate</span><span class="s2">([</span>
+                    <span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">35</span><span class="s2">, </span><span class="s6">15</span><span class="s2">, </span><span class="s1">int</span><span class="s2">(</span><span class="s1">num_patients </span><span class="s2">* </span><span class="s6">0.3</span><span class="s2">)),  </span><span class="s3"># Young adults</span>
+                    <span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">55</span><span class="s2">, </span><span class="s6">10</span><span class="s2">, </span><span class="s1">int</span><span class="s2">(</span><span class="s1">num_patients </span><span class="s2">* </span><span class="s6">0.4</span><span class="s2">)),  </span><span class="s3"># Middle age</span>
+                    <span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">70</span><span class="s2">, </span><span class="s6">10</span><span class="s2">, </span><span class="s1">int</span><span class="s2">(</span><span class="s1">num_patients </span><span class="s2">* </span><span class="s6">0.3</span><span class="s2">))  </span><span class="s3"># Elderly</span>
+                <span class="s2">])</span>
+            <span class="s0">elif </span><span class="s1">age_distribution </span><span class="s2">== </span><span class="s4">&quot;Elderly Focused&quot;</span><span class="s2">:</span>
+                <span class="s1">ages </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">70</span><span class="s2">, </span><span class="s6">15</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">)</span>
+            <span class="s0">elif </span><span class="s1">age_distribution </span><span class="s2">== </span><span class="s4">&quot;Pediatric Focused&quot;</span><span class="s2">:</span>
+                <span class="s1">ages </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">normal</span><span class="s2">(</span><span class="s6">8</span><span class="s2">, </span><span class="s6">5</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">)</span>
+            <span class="s0">else</span><span class="s2">:</span>
+                <span class="s1">ages </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">uniform</span><span class="s2">(</span><span class="s6">1</span><span class="s2">, </span><span class="s6">90</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">)</span>
+
+            <span class="s1">ages </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">clip</span><span class="s2">(</span><span class="s1">ages</span><span class="s2">, </span><span class="s6">1</span><span class="s2">, </span><span class="s6">100</span><span class="s2">).</span><span class="s1">astype</span><span class="s2">(</span><span class="s1">int</span><span class="s2">)[:</span><span class="s1">num_patients</span><span class="s2">]</span>
+
+            <span class="s3"># Generate healthcare data</span>
+            <span class="s1">healthcare_data </span><span class="s2">= </span><span class="s1">pd</span><span class="s2">.</span><span class="s1">DataFrame</span><span class="s2">({</span>
+                <span class="s4">'PatientID'</span><span class="s2">: [</span><span class="s4">f'MH</span><span class="s0">{</span><span class="s1">str</span><span class="s2">(</span><span class="s1">i</span><span class="s2">).</span><span class="s1">zfill</span><span class="s2">(</span><span class="s6">6</span><span class="s2">)</span><span class="s0">}</span><span class="s4">' </span><span class="s0">for </span><span class="s1">i </span><span class="s0">in </span><span class="s1">range</span><span class="s2">(</span><span class="s6">1</span><span class="s2">, </span><span class="s1">num_patients </span><span class="s2">+ </span><span class="s6">1</span><span class="s2">)],</span>
+                <span class="s4">'AdmissionDate'</span><span class="s2">: </span><span class="s1">dates</span><span class="s2">,</span>
+                <span class="s4">'Age'</span><span class="s2">: </span><span class="s1">ages</span><span class="s2">,</span>
+                <span class="s4">'Gender'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s4">'M'</span><span class="s2">, </span><span class="s4">'F'</span><span class="s2">], </span><span class="s1">num_patients</span><span class="s2">, </span><span class="s1">p</span><span class="s2">=[</span><span class="s6">0.48</span><span class="s2">, </span><span class="s6">0.52</span><span class="s2">]),</span>
+                <span class="s4">'Department'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">(</span><span class="s1">department</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">),</span>
+                <span class="s4">'Triage'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s6">1</span><span class="s2">, </span><span class="s6">2</span><span class="s2">, </span><span class="s6">3</span><span class="s2">, </span><span class="s6">4</span><span class="s2">, </span><span class="s6">5</span><span class="s2">], </span><span class="s1">num_patients</span><span class="s2">, </span><span class="s1">p</span><span class="s2">=[</span><span class="s6">0.05</span><span class="s2">, </span><span class="s6">0.15</span><span class="s2">, </span><span class="s6">0.4</span><span class="s2">, </span><span class="s6">0.3</span><span class="s2">, </span><span class="s6">0.1</span><span class="s2">]),</span>
+                <span class="s4">'WaitTime'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">gamma</span><span class="s2">(</span><span class="s6">2</span><span class="s2">, </span><span class="s1">wait_time_target </span><span class="s2">/ </span><span class="s6">2</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">),</span>
+                <span class="s4">'LengthOfStay'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">exponential</span><span class="s2">(</span><span class="s6">3</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">),</span>
+                <span class="s4">'BedType'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s4">'Standard'</span><span class="s2">, </span><span class="s4">'Semi-Private'</span><span class="s2">, </span><span class="s4">'ICU'</span><span class="s2">, </span><span class="s4">'Emergency'</span><span class="s2">], </span><span class="s1">num_patients</span><span class="s2">,</span>
+                                            <span class="s1">p</span><span class="s2">=[</span><span class="s6">0.5</span><span class="s2">, </span><span class="s6">0.3</span><span class="s2">, </span><span class="s6">0.1</span><span class="s2">, </span><span class="s6">0.1</span><span class="s2">]),</span>
+                <span class="s4">'Diagnosis'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s4">'Respiratory'</span><span class="s2">, </span><span class="s4">'Cardiac'</span><span class="s2">, </span><span class="s4">'Trauma'</span><span class="s2">, </span><span class="s4">'Neurological'</span><span class="s2">,</span>
+                                               <span class="s4">'Gastrointestinal'</span><span class="s2">, </span><span class="s4">'Other'</span><span class="s2">], </span><span class="s1">num_patients</span><span class="s2">),</span>
+                <span class="s4">'Procedures'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">poisson</span><span class="s2">(</span><span class="s6">2</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">),</span>
+                <span class="s4">'LabTests'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">poisson</span><span class="s2">(</span><span class="s6">5</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">),</span>
+                <span class="s4">'Medications'</span><span class="s2">: </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">poisson</span><span class="s2">(</span><span class="s6">4</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">)</span>
+            <span class="s2">})</span>
+
+            <span class="s0">if </span><span class="s1">include_covid</span><span class="s2">:</span>
+                <span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'COVID_Status'</span><span class="s2">] = </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s4">'Negative'</span><span class="s2">, </span><span class="s4">'Positive'</span><span class="s2">, </span><span class="s4">'Unknown'</span><span class="s2">],</span>
+                                                                   <span class="s1">num_patients</span><span class="s2">, </span><span class="s1">p</span><span class="s2">=[</span><span class="s6">0.85</span><span class="s2">, </span><span class="s6">0.10</span><span class="s2">, </span><span class="s6">0.05</span><span class="s2">])</span>
+
+            <span class="s0">if </span><span class="s1">include_costs</span><span class="s2">:</span>
+                <span class="s1">base_cost </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">gamma</span><span class="s2">(</span><span class="s6">2</span><span class="s2">, </span><span class="s6">1000</span><span class="s2">, </span><span class="s1">num_patients</span><span class="s2">)</span>
+                <span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'TotalCost'</span><span class="s2">] = </span><span class="s1">base_cost </span><span class="s2">* (</span><span class="s6">1 </span><span class="s2">+ </span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'LengthOfStay'</span><span class="s2">] * </span><span class="s6">0.3</span><span class="s2">)</span>
+                <span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'TotalCost'</span><span class="s2">] = </span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'TotalCost'</span><span class="s2">].</span><span class="s1">round</span><span class="s2">(</span><span class="s6">2</span><span class="s2">)</span>
+
+            <span class="s0">if </span><span class="s1">include_outcomes</span><span class="s2">:</span>
+                <span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'Outcome'</span><span class="s2">] = </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s4">'Discharged'</span><span class="s2">, </span><span class="s4">'Admitted'</span><span class="s2">, </span><span class="s4">'Transferred'</span><span class="s2">, </span><span class="s4">'Other'</span><span class="s2">],</span>
+                                                              <span class="s1">num_patients</span><span class="s2">, </span><span class="s1">p</span><span class="s2">=[</span><span class="s6">0.7</span><span class="s2">, </span><span class="s6">0.2</span><span class="s2">, </span><span class="s6">0.08</span><span class="s2">, </span><span class="s6">0.02</span><span class="s2">])</span>
+                <span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'Readmission30Day'</span><span class="s2">] = </span><span class="s1">np</span><span class="s2">.</span><span class="s1">random</span><span class="s2">.</span><span class="s1">choice</span><span class="s2">([</span><span class="s6">0</span><span class="s2">, </span><span class="s6">1</span><span class="s2">], </span><span class="s1">num_patients</span><span class="s2">, </span><span class="s1">p</span><span class="s2">=[</span><span class="s6">0.85</span><span class="s2">, </span><span class="s6">0.15</span><span class="s2">])</span>
+
+            <span class="s3"># Add seasonal patterns</span>
+            <span class="s0">if </span><span class="s1">seasonal_pattern</span><span class="s2">:</span>
+                <span class="s1">seasonal_factor </span><span class="s2">= </span><span class="s1">np</span><span class="s2">.</span><span class="s1">sin</span><span class="s2">(</span><span class="s1">np</span><span class="s2">.</span><span class="s1">arange</span><span class="s2">(</span><span class="s1">num_patients</span><span class="s2">) * </span><span class="s6">2 </span><span class="s2">* </span><span class="s1">np</span><span class="s2">.</span><span class="s1">pi </span><span class="s2">/ (</span><span class="s1">num_patients </span><span class="s2">/ </span><span class="s6">4</span><span class="s2">)) * </span><span class="s6">0.3 </span><span class="s2">+ </span><span class="s6">1</span>
+                <span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'WaitTime'</span><span class="s2">] = </span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'WaitTime'</span><span class="s2">] * </span><span class="s1">seasonal_factor</span>
+
+            <span class="s1">st</span><span class="s2">.</span><span class="s1">success</span><span class="s2">(</span><span class="s4">f&quot;✅ Generated </span><span class="s0">{</span><span class="s1">num_patients</span><span class="s0">} </span><span class="s4">synthetic patient records for Markham Hospital!&quot;</span><span class="s2">)</span>
+
+            <span class="s3"># Display results</span>
+            <span class="s1">tab_preview</span><span class="s2">, </span><span class="s1">tab_stats</span><span class="s2">, </span><span class="s1">tab_viz</span><span class="s2">, </span><span class="s1">tab_insights</span><span class="s2">, </span><span class="s1">tab_privacy </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">tabs</span><span class="s2">(</span>
+                <span class="s2">[</span><span class="s4">&quot;Preview&quot;</span><span class="s2">, </span><span class="s4">&quot;Statistics&quot;</span><span class="s2">, </span><span class="s4">&quot;Visualizations&quot;</span><span class="s2">, </span><span class="s4">&quot;Insights&quot;</span><span class="s2">, </span><span class="s4">&quot;Privacy Check&quot;</span><span class="s2">])</span>
+
+            <span class="s0">with </span><span class="s1">tab_preview</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">head</span><span class="s2">(</span><span class="s6">100</span><span class="s2">), </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s1">csv </span><span class="s2">= </span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">to_csv</span><span class="s2">(</span><span class="s1">index</span><span class="s2">=</span><span class="s0">False</span><span class="s2">)</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">download_button</span><span class="s2">(</span>
+                    <span class="s1">label</span><span class="s2">=</span><span class="s4">&quot;📥 Download Markham Hospital Simulation Data&quot;</span><span class="s2">,</span>
+                    <span class="s1">data</span><span class="s2">=</span><span class="s1">csv</span><span class="s2">,</span>
+                    <span class="s1">file_name</span><span class="s2">=</span><span class="s4">f&quot;markham_hospital_simulation_</span><span class="s0">{</span><span class="s1">datetime</span><span class="s2">.</span><span class="s1">now</span><span class="s2">().</span><span class="s1">strftime</span><span class="s2">(</span><span class="s4">'%Y%m%d'</span><span class="s2">)</span><span class="s0">}</span><span class="s4">.csv&quot;</span><span class="s2">,</span>
+                    <span class="s1">mime</span><span class="s2">=</span><span class="s4">&quot;text/csv&quot;</span>
+                <span class="s2">)</span>
+
+            <span class="s0">with </span><span class="s1">tab_stats</span><span class="s2">:</span>
+                <span class="s1">col1</span><span class="s2">, </span><span class="s1">col2</span><span class="s2">, </span><span class="s1">col3</span><span class="s2">, </span><span class="s1">col4 </span><span class="s2">= </span><span class="s1">st</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">(</span><span class="s6">4</span><span class="s2">)</span>
+                <span class="s0">with </span><span class="s1">col1</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Avg Wait Time&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'WaitTime'</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">} </span><span class="s4">min&quot;</span><span class="s2">)</span>
+                <span class="s0">with </span><span class="s1">col2</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Avg Length of Stay&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'LengthOfStay'</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">} </span><span class="s4">days&quot;</span><span class="s2">)</span>
+                <span class="s0">with </span><span class="s1">col3</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Bed Utilization&quot;</span><span class="s2">, </span><span class="s4">f&quot;</span><span class="s0">{</span><span class="s1">bed_utilization</span><span class="s0">}</span><span class="s4">%&quot;</span><span class="s2">)</span>
+                <span class="s0">with </span><span class="s1">col4</span><span class="s2">:</span>
+                    <span class="s0">if </span><span class="s1">include_costs</span><span class="s2">:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">metric</span><span class="s2">(</span><span class="s4">&quot;Avg Cost per Patient&quot;</span><span class="s2">, </span><span class="s4">f&quot;$</span><span class="s0">{</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'TotalCost'</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()</span><span class="s0">:</span><span class="s4">.2f</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+
+                <span class="s3"># Department statistics</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### Department Statistics&quot;</span><span class="s2">)</span>
+                <span class="s1">dept_stats </span><span class="s2">= </span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">groupby</span><span class="s2">(</span><span class="s4">'Department'</span><span class="s2">).</span><span class="s1">agg</span><span class="s2">({</span>
+                    <span class="s4">'PatientID'</span><span class="s2">: </span><span class="s4">'count'</span><span class="s2">,</span>
+                    <span class="s4">'WaitTime'</span><span class="s2">: </span><span class="s4">'mean'</span><span class="s2">,</span>
+                    <span class="s4">'LengthOfStay'</span><span class="s2">: </span><span class="s4">'mean'</span>
+                <span class="s2">}).</span><span class="s1">round</span><span class="s2">(</span><span class="s6">1</span><span class="s2">)</span>
+                <span class="s1">dept_stats</span><span class="s2">.</span><span class="s1">columns </span><span class="s2">= [</span><span class="s4">'Patient Count'</span><span class="s2">, </span><span class="s4">'Avg Wait Time (min)'</span><span class="s2">, </span><span class="s4">'Avg LOS (days)'</span><span class="s2">]</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">dataframe</span><span class="s2">(</span><span class="s1">dept_stats</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s0">with </span><span class="s1">tab_viz</span><span class="s2">:</span>
+                <span class="s3"># Wait time distribution</span>
+                <span class="s1">fig1 </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">histogram</span><span class="s2">(</span><span class="s1">healthcare_data</span><span class="s2">, </span><span class="s1">x</span><span class="s2">=</span><span class="s4">'WaitTime'</span><span class="s2">, </span><span class="s1">nbins</span><span class="s2">=</span><span class="s6">30</span><span class="s2">,</span>
+                                    <span class="s1">title</span><span class="s2">=</span><span class="s4">'Emergency Department Wait Time Distribution'</span><span class="s2">,</span>
+                                    <span class="s1">labels</span><span class="s2">={</span><span class="s4">'WaitTime'</span><span class="s2">: </span><span class="s4">'Wait Time (minutes)'</span><span class="s2">, </span><span class="s4">'count'</span><span class="s2">: </span><span class="s4">'Number of Patients'</span><span class="s2">})</span>
+                <span class="s1">fig1</span><span class="s2">.</span><span class="s1">update_traces</span><span class="s2">(</span><span class="s1">marker_color</span><span class="s2">=</span><span class="s4">'#00693e'</span><span class="s2">)</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig1</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s3"># Department volume</span>
+                <span class="s1">dept_counts </span><span class="s2">= </span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'Department'</span><span class="s2">].</span><span class="s1">value_counts</span><span class="s2">()</span>
+                <span class="s1">fig2 </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">pie</span><span class="s2">(</span><span class="s1">values</span><span class="s2">=</span><span class="s1">dept_counts</span><span class="s2">.</span><span class="s1">values</span><span class="s2">, </span><span class="s1">names</span><span class="s2">=</span><span class="s1">dept_counts</span><span class="s2">.</span><span class="s1">index</span><span class="s2">,</span>
+                              <span class="s1">title</span><span class="s2">=</span><span class="s4">'Patient Distribution by Department'</span><span class="s2">)</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig2</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s3"># Time series of admissions</span>
+                <span class="s1">daily_admissions </span><span class="s2">= </span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">groupby</span><span class="s2">(</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'AdmissionDate'</span><span class="s2">].</span><span class="s1">dt</span><span class="s2">.</span><span class="s1">date</span><span class="s2">).</span><span class="s1">size</span><span class="s2">()</span>
+                <span class="s1">fig3 </span><span class="s2">= </span><span class="s1">px</span><span class="s2">.</span><span class="s1">line</span><span class="s2">(</span><span class="s1">x</span><span class="s2">=</span><span class="s1">daily_admissions</span><span class="s2">.</span><span class="s1">index</span><span class="s2">, </span><span class="s1">y</span><span class="s2">=</span><span class="s1">daily_admissions</span><span class="s2">.</span><span class="s1">values</span><span class="s2">,</span>
+                               <span class="s1">title</span><span class="s2">=</span><span class="s4">'Daily Admission Patterns'</span><span class="s2">,</span>
+                               <span class="s1">labels</span><span class="s2">={</span><span class="s4">'x'</span><span class="s2">: </span><span class="s4">'Date'</span><span class="s2">, </span><span class="s4">'y'</span><span class="s2">: </span><span class="s4">'Number of Admissions'</span><span class="s2">})</span>
+                <span class="s1">fig3</span><span class="s2">.</span><span class="s1">update_traces</span><span class="s2">(</span><span class="s1">line_color</span><span class="s2">=</span><span class="s4">'#00693e'</span><span class="s2">)</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">plotly_chart</span><span class="s2">(</span><span class="s1">fig3</span><span class="s2">, </span><span class="s1">use_container_width</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s0">with </span><span class="s1">tab_insights</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🔍 Key Insights for Markham Hospital&quot;</span><span class="s2">)</span>
+
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">f&quot;&quot;&quot;</span>
+                <span class="s4">&lt;div class='metric-card'&gt;</span>
+                <span class="s4">&lt;h4&gt;Operational Efficiency&lt;/h4&gt;</span>
+                <span class="s4">&lt;ul&gt;</span>
+                <span class="s4">&lt;li&gt;Current average wait time: </span><span class="s0">{</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'WaitTime'</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">} </span><span class="s4">minutes&lt;/li&gt;</span>
+                <span class="s4">&lt;li&gt;Peak admission hours identified for optimal staffing&lt;/li&gt;</span>
+                <span class="s4">&lt;li&gt;Bed turnover rate: </span><span class="s0">{</span><span class="s1">num_patients </span><span class="s2">/ (</span><span class="s1">days </span><span class="s2">* </span><span class="s1">bed_utilization </span><span class="s2">/ </span><span class="s6">100</span><span class="s2">)</span><span class="s0">:</span><span class="s4">.1f</span><span class="s0">} </span><span class="s4">patients/day&lt;/li&gt;</span>
+                <span class="s4">&lt;/ul&gt;</span>
+                <span class="s4">&lt;/div&gt;</span>
+                <span class="s4">&quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">f&quot;&quot;&quot;</span>
+                <span class="s4">&lt;div class='metric-card'&gt;</span>
+                <span class="s4">&lt;h4&gt;Resource Planning Recommendations&lt;/h4&gt;</span>
+                <span class="s4">&lt;ul&gt;</span>
+                <span class="s4">&lt;li&gt;Increase </span><span class="s0">{</span><span class="s1">department</span><span class="s2">[</span><span class="s6">0</span><span class="s2">]</span><span class="s0">} </span><span class="s4">staff during peak hours (2-6 PM)&lt;/li&gt;</span>
+                <span class="s4">&lt;li&gt;Consider adding </span><span class="s0">{</span><span class="s1">int</span><span class="s2">(</span><span class="s1">num_patients </span><span class="s2">* </span><span class="s6">0.05</span><span class="s2">)</span><span class="s0">} </span><span class="s4">overflow beds for surge capacity&lt;/li&gt;</span>
+                <span class="s4">&lt;li&gt;Optimize lab processing to reduce overall length of stay&lt;/li&gt;</span>
+                <span class="s4">&lt;/ul&gt;</span>
+                <span class="s4">&lt;/div&gt;</span>
+                <span class="s4">&quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s0">if </span><span class="s1">include_costs</span><span class="s2">:</span>
+                    <span class="s1">total_cost </span><span class="s2">= </span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'TotalCost'</span><span class="s2">].</span><span class="s1">sum</span><span class="s2">()</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">f&quot;&quot;&quot;</span>
+                    <span class="s4">&lt;div class='metric-card'&gt;</span>
+                    <span class="s4">&lt;h4&gt;Financial Impact&lt;/h4&gt;</span>
+                    <span class="s4">&lt;ul&gt;</span>
+                    <span class="s4">&lt;li&gt;Total simulated healthcare costs: $</span><span class="s0">{</span><span class="s1">total_cost</span><span class="s0">:</span><span class="s4">,.2f</span><span class="s0">}</span><span class="s4">&lt;/li&gt;</span>
+                    <span class="s4">&lt;li&gt;Average cost per patient: $</span><span class="s0">{</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'TotalCost'</span><span class="s2">].</span><span class="s1">mean</span><span class="s2">()</span><span class="s0">:</span><span class="s4">,.2f</span><span class="s0">}</span><span class="s4">&lt;/li&gt;</span>
+                    <span class="s4">&lt;li&gt;Potential savings from 10% LOS reduction: $</span><span class="s0">{</span><span class="s1">total_cost </span><span class="s2">* </span><span class="s6">0.15</span><span class="s0">:</span><span class="s4">,.2f</span><span class="s0">}</span><span class="s4">&lt;/li&gt;</span>
+                    <span class="s4">&lt;/ul&gt;</span>
+                    <span class="s4">&lt;/div&gt;</span>
+                    <span class="s4">&quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+            <span class="s0">with </span><span class="s1">tab_privacy</span><span class="s2">:</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;#### 🔒 Healthcare Data Privacy Assessment&quot;</span><span class="s2">)</span>
+
+                <span class="s3"># Healthcare-specific privacy checks</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### HIPAA Compliance Check&quot;</span><span class="s2">)</span>
+
+                <span class="s1">hipaa_identifiers </span><span class="s2">= [</span><span class="s4">'PatientID'</span><span class="s2">]  </span><span class="s3"># In real scenario, would check for more identifiers</span>
+
+                <span class="s1">compliance_score </span><span class="s2">= </span><span class="s6">100  </span><span class="s3"># Start at 100%</span>
+                <span class="s1">compliance_issues </span><span class="s2">= []</span>
+
+                <span class="s3"># Check for direct identifiers</span>
+                <span class="s0">if </span><span class="s4">'SSN' </span><span class="s0">in </span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">columns </span><span class="s0">or </span><span class="s4">'SocialSecurity' </span><span class="s0">in </span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">:</span>
+                    <span class="s1">compliance_score </span><span class="s2">-= </span><span class="s6">30</span>
+                    <span class="s1">compliance_issues</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;❌ Social Security Numbers detected&quot;</span><span class="s2">)</span>
+
+                <span class="s3"># Check for quasi-identifiers combination</span>
+                <span class="s0">if </span><span class="s1">len</span><span class="s2">(</span><span class="s1">healthcare_data</span><span class="s2">[[</span><span class="s4">'Age'</span><span class="s2">, </span><span class="s4">'Gender'</span><span class="s2">]].</span><span class="s1">drop_duplicates</span><span class="s2">()) / </span><span class="s1">len</span><span class="s2">(</span><span class="s1">healthcare_data</span><span class="s2">) &gt; </span><span class="s6">0.8</span><span class="s2">:</span>
+                    <span class="s1">compliance_score </span><span class="s2">-= </span><span class="s6">10</span>
+                    <span class="s1">compliance_issues</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;⚠️ High uniqueness in Age+Gender combination&quot;</span><span class="s2">)</span>
+
+                <span class="s3"># Date precision check</span>
+                <span class="s0">if </span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'AdmissionDate'</span><span class="s2">].</span><span class="s1">dt</span><span class="s2">.</span><span class="s1">time</span><span class="s2">.</span><span class="s1">nunique</span><span class="s2">() &gt; </span><span class="s6">24</span><span class="s2">:</span>
+                    <span class="s1">compliance_score </span><span class="s2">-= </span><span class="s6">5</span>
+                    <span class="s1">compliance_issues</span><span class="s2">.</span><span class="s1">append</span><span class="s2">(</span><span class="s4">&quot;⚠️ High precision timestamps may increase identification risk&quot;</span><span class="s2">)</span>
+
+                <span class="s3"># Display compliance results</span>
+                <span class="s1">compliance_color </span><span class="s2">= </span><span class="s4">'green' </span><span class="s0">if </span><span class="s1">compliance_score </span><span class="s2">&gt; </span><span class="s6">90 </span><span class="s0">else </span><span class="s4">'orange' </span><span class="s0">if </span><span class="s1">compliance_score </span><span class="s2">&gt; </span><span class="s6">70 </span><span class="s0">else </span><span class="s4">'red'</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">f&quot;&quot;&quot;</span>
+                <span class="s4">&lt;div style='text-align: center; padding: 1rem; background-color: </span><span class="s0">{</span><span class="s1">compliance_color</span><span class="s0">}</span><span class="s4">20; </span>
+                          <span class="s4">border: 2px solid </span><span class="s0">{</span><span class="s1">compliance_color</span><span class="s0">}</span><span class="s4">; border-radius: 10px; margin: 1rem 0;'&gt;</span>
+                <span class="s4">&lt;h3 style='color: </span><span class="s0">{</span><span class="s1">compliance_color</span><span class="s0">}</span><span class="s4">; margin: 0;'&gt;HIPAA Compliance Score: </span><span class="s0">{</span><span class="s1">compliance_score</span><span class="s0">}</span><span class="s4">%&lt;/h3&gt;</span>
+                <span class="s4">&lt;/div&gt;</span>
+                <span class="s4">&quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+                <span class="s0">if </span><span class="s1">compliance_issues</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### 🚨 Compliance Issues Found:&quot;</span><span class="s2">)</span>
+                    <span class="s0">for </span><span class="s1">issue </span><span class="s0">in </span><span class="s1">compliance_issues</span><span class="s2">:</span>
+                        <span class="s1">st</span><span class="s2">.</span><span class="s1">write</span><span class="s2">(</span><span class="s4">f&quot;• </span><span class="s0">{</span><span class="s1">issue</span><span class="s0">}</span><span class="s4">&quot;</span><span class="s2">)</span>
+                <span class="s0">else</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">success</span><span class="s2">(</span><span class="s4">&quot;✅ No major HIPAA compliance issues detected in synthetic data&quot;</span><span class="s2">)</span>
+
+                <span class="s3"># Safe Harbor compliance check</span>
+                <span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;##### Safe Harbor Compliance&quot;</span><span class="s2">)</span>
+                <span class="s1">safe_harbor_compliant </span><span class="s2">= </span><span class="s0">True</span>
+                <span class="s0">if </span><span class="s4">'PatientID' </span><span class="s0">in </span><span class="s1">healthcare_data</span><span class="s2">.</span><span class="s1">columns</span><span class="s2">:</span>
+                    <span class="s3"># Check if IDs are properly anonymized (synthetic)</span>
+                    <span class="s0">if not </span><span class="s1">all</span><span class="s2">(</span><span class="s1">healthcare_data</span><span class="s2">[</span><span class="s4">'PatientID'</span><span class="s2">].</span><span class="s1">str</span><span class="s2">.</span><span class="s1">startswith</span><span class="s2">(</span><span class="s4">'MH'</span><span class="s2">)):</span>
+                        <span class="s1">safe_harbor_compliant </span><span class="s2">= </span><span class="s0">False</span>
+
+                <span class="s0">if </span><span class="s1">safe_harbor_compliant</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">success</span><span class="s2">(</span><span class="s4">&quot;✅ Data meets Safe Harbor de-identification standards&quot;</span><span class="s2">)</span>
+                <span class="s0">else</span><span class="s2">:</span>
+                    <span class="s1">st</span><span class="s2">.</span><span class="s1">warning</span><span class="s2">(</span><span class="s4">&quot;⚠️ Review identifiers for Safe Harbor compliance&quot;</span><span class="s2">)</span>
+
+<span class="s3"># Footer</span>
+<span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;---&quot;</span><span class="s2">)</span>
+<span class="s1">st</span><span class="s2">.</span><span class="s1">markdown</span><span class="s2">(</span><span class="s4">&quot;&quot;&quot; 
+    &lt;div style='text-align: center; color: #666; padding: 1rem;'&gt; 
+        &lt;p&gt;🎓 Developed for Ivey Business School - University of Western Ontario&lt;/p&gt; 
+        &lt;p style='font-size: 0.9rem;'&gt;© 2024 Advanced Synthetic Data Generation Platform | Educational Purpose Only&lt;/p&gt; 
+        &lt;p style='font-size: 0.8rem;'&gt;Enhanced with Privacy Risk Assessment, Quality Reports &amp; Anonymization Tools&lt;/p&gt; 
+    &lt;/div&gt; 
+    &quot;&quot;&quot;</span><span class="s2">, </span><span class="s1">unsafe_allow_html</span><span class="s2">=</span><span class="s0">True</span><span class="s2">)</span>
+
+<span class="s3"># FIXED: Removed the problematic main() function and __name__ == &quot;__main__&quot; block</span>
+<span class="s3"># that was causing the new window pop-up bug</span></pre>
+</body>
+</html>
